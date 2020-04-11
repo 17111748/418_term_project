@@ -18,8 +18,10 @@ typedef struct {
 typedef struct {
 	node_t *left; 
 	node_t *right; 
+	float feature_value;
 	int feature;
 	int depth;
+	int result;  
 } node_t;
 
 typedef struct {
@@ -33,12 +35,14 @@ typedef struct {
 } dataidxs_t;
 
 
-node_t* create_node(int feature, int depth) {
+node_t* create_node(int feature, float feature_value, int depth) {
 	node_t *node = malloc(sizeof(node_t)); 
 	node->left = NULL; 
 	node->right = NULL; 
 	node->feature = feature; 
 	node->depth = depth;
+	node->feature_value = feature_value; 
+	node->result = -1; 
 	return node;
 }
 
@@ -64,48 +68,6 @@ dataidxs_t* subsample(int n_entries, float percentage) {
 }
 
 
-float gini_index(group_t group, int *labelList, int labelList_len) {
-	int n_instances = group->left_len + group->right_len; 
-	float gini = 0.0; 
-	int i, j, k; 
-	float size, score, p; 
-	for (i = 0; i < 2; i++) {
-		size = 2.0; 
-		score = 0.0; 
-		for (j = 0; j < labelList_len; j++) {
-			p = 0.0; 
-			if(i == 0) {
-				for (k = 0; k < left_len; k++) {
-
-				}
-			}
-			else {
-				for (k = 0; k < right_len; k++) {
-
-				}
-			}
-			score += p; 
-		}
-		gini += (1.0 - score) * (size / n_instances); 
-	}
-	return gini; 
-}
-
-
-
-
-node_t get_split(int **dataset, int n_features) {
-
-}
-
-
-node_t build_tree(float **train_set, dataidxs_t *sample, int max_depth, int min_size, int n_features) {
-	node_t *rootNode; 
-
-
-
-	return rootNode; 
-}
 
 
 
@@ -129,32 +91,99 @@ int* random_forest(float **train_set, float **test_set, int train_len, int test_
 	int row; 
 	int *predictions = malloc(test_len * sizeof(int)); 
 	for (row = 0; row < test_len; row++) {
-		predictions[row] = bagging_predict(tree_list, test_set, row); 
+		predictions[row] = bagging_predict(tree_list, n_trees, test_set, row); 
 	}
 	return predictions; 
 }
 
 
 
+// Pass in n_trees
+int predict(tree_t tree, float **test_set, int row) {
+	node_t *cur_node = tree->root_node; 
+	float *test_row = test_set[row]; 
+	int feature; 
+	float feature_value; 
+	if (cur_node == NULL) return -1; 
+	while ((cur_node->left == NULL) && (cur_node->right == NULL)) {
+		feature = cur_node->feature; 
+		feature_value = cur_node->feature_value; 
+		if (test_row[feature] < feature_value) {
+			cur_node = cur_node->left; 
+		}
+		else {
+			cur_node = cur_node->right; 
+		}
+	}
 
-
-
-int predict(tree_t *tree_list, int tree_list_len, int *test, int test_len, int row) {
-	if()
+	return cur_node->result; 
 }
 
 // TODO: Find maximum occurence 
-int bagging_predict(tree_t *tree_list, int tree_list_len, int *test, int test_len, int row) {
+int bagging_predict(tree_t *tree_list, int n_trees, float **test_set, int row) {
 	int i; 
-	int *predictions[tree_list_len]; 
-	for (i = 0; i < tree_list_len; i++) {
-		predictions[i] = predict(tree_list, tree_list_len, test, test_len, row); 
+	int prediction; 
+	int predict_0 = 0;  
+	int predict_1 = 0;  
+	for (i = 0; i < n_trees; i++) {
+		prediction = predict(tree_list[i], test, row); 
+		if (prediction == 0) predict_0++; 
+		else if (prediction == 1) predict_1++; 
 	}
 
-	int prediction; 
-	// TODO: Find the maximum occurance 
-
-	return prediction; 
+	return (predict_0 > predict_1) ? 0 : 1; 
 }
 
+
+
+float gini_index(float **train_set, group_t *group) {
+	dataidxs_t *left_idxs = group->left_idxs; 
+	dataidxs_t *right_idxs = group->right_idxs; 
+
+	int n_instances = left_idxs->n_entries + right_idxs->n_entries; 
+	float gini = 0.0; 
+	int i, j, k; 
+	float size, score, p0, p1; 
+
+	// Left Side 
+	size = float(left_idxs->n_entries); 
+	if (size != 0) {
+		score = 0.0; 
+		p0 = 0.0; 
+		p1 = 0.0; 
+		for (k = 0; k < left_idxs->n_entries; k++) {
+			int index = left_idxs[k]; 
+			// get malign or not count 
+			if((int)train_set[index][NUM_FEATURES - 1] == 0) {
+				p0 += 1; 
+			}
+			else {
+				p1 += 1; 
+			}
+		}
+		score += p0/size * p0/size;
+		gini += (1.0 - score) * (size / n_instances); 
+	}
+
+	// Right Side 
+	size = float(right_idxs->n_entries); 
+	if (size != 0) {
+		score = 0.0; 
+		p0 = 0.0; 
+		p1 = 0.0; 
+		for (k = 0; k < right_idxs->n_entries; k++) {
+			int index = right_idxs[k]; 
+			if((int)train_set[index][NUM_FEATURES - 1] == 0) {
+				p0 += 1; 
+			}
+			else {
+				p1 += 1; 
+			}
+		}
+		score += p0/size * p0/size;
+		gini += (1.0 - score) * (size / n_instances); 
+	}
+	
+	return gini; 
+}
 
