@@ -23,15 +23,13 @@ typedef struct {
 } node_t
 
 typedef struct {
-	float **left; 
-	float **right; 
-	int left_len;
-	int right_len; 
+	dataset_t *left; 
+	dataset_t *right; 
 } group_t
 
 typedef struct {
 	float **data;
-	int num_rows; 
+	int n_entries; 
 } dataset_t
 
 
@@ -43,6 +41,27 @@ node_t* create_node(int data, int level) {
 	node->level = level; 
 }
 
+dataset_t* create_dataset(int n_entries) {
+	dataset_t *dataset = malloc(sizeof(dataset_t)); 
+	float **data = malloc(sizeof(float *) * rows); 
+	dataset->data = data; 
+	dataset->n_entries = n_entries; 
+	return dataset; 
+}
+
+
+// TODO: Check Dataset type 
+dataset_t* subsample(dataset_t *dataset, int dataset_len, float ratio) {
+	int i; 
+	int n_sample = round((float)dataset_len * ratio);
+	dataset_t *sample = create_dataset(n_sample); 
+
+	for (i = 0; i < n_sample; i++) {
+		int index = rand() % dataset_len; 
+		sample[i] = dataset[index]; 
+	}
+	return sample;  
+}
 
 
 float gini_index(group_t group, int *labelList, int labelList_len) {
@@ -120,16 +139,7 @@ int* random_forest(int **train, int **test, int train_len, int test_len, int max
 
 
 
-// TODO: Check Dataset type 
-data_t* subsample(data_t *dataset, int dataset_len, float ratio) {
-	int n_sample = round((float)dataset_len * ratio); 
-	int i; 
-	for (i = 0; i < n_sample; i++) {
-		int index = rand() % dataset_len; 
-		sample[i] = dataset[index]; 
-	}
-	return sample;  
-}
+
 
 int predict(tree_t *treeList, int treeList_len, int *test, int test_len, int row) {
 	if()
