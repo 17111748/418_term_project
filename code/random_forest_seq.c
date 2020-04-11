@@ -6,36 +6,33 @@
 #include <stdlib.h>
 #include <math.h>
 
+int NUM_ENTRIES_TOTAL = 569;
+int NUM_TEST_ENTRIES = 85; // Approx 15%
+int NUM_TRAIN_ENTRIES = 484; 
+int NUM_FEATURES = 30;
 
 typedef struct {
 	node_t *rootNode; 
-}tree_t
+} tree_t
 
 typedef struct {
-	int data; 
-	struct node_t *left; 
-	struct node_t *right; 
-	int level; 
+	int feature; 
+	node_t *left; 
+	node_t *right; 
+	int depth;
 } node_t
 
 typedef struct {
-	int *left; 
-	int *right; 
-	int left_len; 
+	float **left; 
+	float **right; 
+	int left_len;
 	int right_len; 
 } group_t
 
 typedef struct {
-	int *row; 
-	int cols; 
-} data_t
-
-typdef struct {
-	data_t *
-	int rows; 
+	float **data;
+	int num_rows; 
 } dataset_t
-
-
 
 
 node_t* create_node(int data, int level) {
