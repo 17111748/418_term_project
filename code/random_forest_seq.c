@@ -12,55 +12,55 @@ int NUM_TRAIN_ENTRIES = 484;
 int NUM_FEATURES = 30;
 
 typedef struct {
-	node_t *rootNode; 
-} tree_t
+	node_t *root_node; 
+} tree_t;
 
 typedef struct {
-	int feature; 
 	node_t *left; 
 	node_t *right; 
+	int feature;
 	int depth;
-} node_t
+} node_t;
 
 typedef struct {
-	dataset_t *left; 
-	dataset_t *right; 
-} group_t
+	dataidxs_t *left_idxs; 
+	dataidxs_t *right_idxs;
+} group_t;
 
 typedef struct {
-	float **data;
-	int n_entries; 
-} dataset_t
+	int *data_idxs;
+	int n_entries;
+} dataidxs_t;
 
 
-node_t* create_node(int data, int level) {
+node_t* create_node(int feature, int depth) {
 	node_t *node = malloc(sizeof(node_t)); 
 	node->left = NULL; 
 	node->right = NULL; 
-	node->data = data; 
-	node->level = level; 
+	node->feature = feature; 
+	node->depth = depth;
+	return node;
 }
 
-dataset_t* create_dataset(int n_entries) {
-	dataset_t *dataset = malloc(sizeof(dataset_t)); 
-	float **data = malloc(sizeof(float *) * rows); 
-	dataset->data = data; 
-	dataset->n_entries = n_entries; 
-	return dataset; 
+dataidxs_t* create_dataidxs(int n_entries) {
+	dataidxs_t *dataidxs = malloc(sizeof(dataidxs_t)); 
+	int *idxs = malloc(sizeof(int) * n_entries); 
+	dataidxs->data_idxs = idxs;
+	dataidxs->n_entries = n_entries; 
+	return dataidxs;
 }
 
 
-// TODO: Check Dataset type 
-dataset_t* subsample(dataset_t *dataset, int dataset_len, float ratio) {
-	int i; 
-	int n_sample = round((float)dataset_len * ratio);
-	dataset_t *sample = create_dataset(n_sample); 
-
+/* Create a random subsample from the dataset with replacement */
+dataidxs_t* subsample(int n_entries, float percentage) {
+	int i;
+	int n_sample = round((float)n_entries * percentage);
+	dataidxs_t *sample = create_dataidxs(n_sample);
 	for (i = 0; i < n_sample; i++) {
-		int index = rand() % dataset_len; 
-		sample[i] = dataset[index]; 
+		int index = rand() % n_entries; 
+		sample->data_idxs[i] = index; 
 	}
-	return sample;  
+	return sample; 
 }
 
 
@@ -99,10 +99,8 @@ node_t get_split(int **dataset, int n_features) {
 }
 
 
-node_t build_tree(int **sample, int max_depth, int min_size, int n_features) {
+node_t build_tree(float **train_set, dataidxs_t *sample, int max_depth, int min_size, int n_features) {
 	node_t *rootNode; 
-
-
 
 
 
@@ -112,26 +110,26 @@ node_t build_tree(int **sample, int max_depth, int min_size, int n_features) {
 
 
 // Dataset should be int **
-int* random_forest(int **train, int **test, int train_len, int test_len, int max_depth, int min_size, 
-					int sample_size, int n_trees, int n_features) {
+int* random_forest(float **train_set, float **test_set, int train_len, int test_len,
+				   int max_depth, int min_size, int percentage,
+				   int n_trees, int n_features) {
 
-	tree_t *treeList = malloc(n_trees * sizeof(tree_t)); 
+	tree_t *tree_list = malloc(n_trees * sizeof(tree_t)); 
 
 	int tree_index; 
 
 	for (tree_index = 0; tree_index < n_trees; tree_index++) {
-		int **sample = subsample(train, train_len, sample_size); 
-		node_t *rootNode = build_tree(sample, max_depth, min_size, n_features); 
+		dataidxs_t *sample = subsample(train_len, percentage); 
+		node_t *root_node = build_tree(train_set, sample, max_depth, min_size, n_features); 
 		tree_t *tree = malloc(sizeof(tree_t)); 
-		tree->rootNode = rootNode; 
-		treeList[tree_index] = tree; 
+		tree->root_node = root_node; 
+		tree_list[tree_index] = tree; 
 	}
 
-	// Assume predictions are integers 
 	int row; 
 	int *predictions = malloc(test_len * sizeof(int)); 
-	for(row = 0; row < test_len; row++) {
-		predictions[row] = bagging_predict(treeList, test, row); 
+	for (row = 0; row < test_len; row++) {
+		predictions[row] = bagging_predict(tree_list, test_set, row); 
 	}
 	return predictions; 
 }
@@ -141,16 +139,16 @@ int* random_forest(int **train, int **test, int train_len, int test_len, int max
 
 
 
-int predict(tree_t *treeList, int treeList_len, int *test, int test_len, int row) {
+int predict(tree_t *tree_list, int tree_list_len, int *test, int test_len, int row) {
 	if()
 }
 
 // TODO: Find maximum occurence 
-int bagging_predict(tree_t *treeList, int treeList_len, int *test, int test_len, int row) {
+int bagging_predict(tree_t *tree_list, int tree_list_len, int *test, int test_len, int row) {
 	int i; 
-	int *predictions[treeList_len]; 
-	for (i = 0; i < treeList_len; i++) {
-		predictions[i] = predict(treeList, treeList_len, test, test_len, row); 
+	int *predictions[tree_list_len]; 
+	for (i = 0; i < tree_list_len; i++) {
+		predictions[i] = predict(tree_list, tree_list_len, test, test_len, row); 
 	}
 
 	int prediction; 
