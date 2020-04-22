@@ -67,8 +67,92 @@ dataidxs_t* subsample(int n_entries, float percentage) {
 	return sample; 
 }
 
+group_t *test_split(int index, float value, float **train_set) {
+	dataidxs_t *left = create_dataidxs(NUM_TRAIN_ENTRIES); 
+	dataidxs_t *right = create_dataidxs(NUM_TRAIN_ENTRIES); 
+	int left_count = 0;
+	int right_count = 0; 
+	
+	for (int row = 0; row < NUM_TRAIN_ENTRIES; row++) {
+		if (train_set[row][index] < value) {
+			left->data_idxs[left_count] = row; 
+			left_count++; 
+		}
+		else {
+			right->data_idxs[right_count] = row; 
+			right_count++; 
+		}
+	}
+
+	left->n_entries = left_count; 
+	right->n_entries = right_count; 
+
+	group_t *group = malloc(sizeof(group_t)); 
+	group->left_idxs = left; 
+	group->right_idxs = right; 
+
+	return group; 
+}
+
+node_t *get_split(float **train_set, int n_features, int node_depth) {
+	int best_feature_index = -1; 
+	float best_feature_value = -1; 
+	float best_score = (float)INT_MAX; 
+	group_t *best_group = NULL; 
+
+	int index; 
+	int count; 
+
+	// Randomly Select N features from featureList 
+	int featureList[n_features]; 
+	featureList[0] = rand() % n_features; 
+	for (int i = 1; i < n_features; i++) {
+		count = 0; 
+		index = rand() % n_features; 
+		while (count < i) {
+			if(featureList[count] == index) {
+				index = rand() % n_features; 
+				count = 0; 
+			}
+			else {
+				count++; 
+			}
+		}
+		featureList[i] = index; 
+	}
+
+	// Selecting the best split with the lowest gini index 
+	for (int feature_index = 0; feature_index < n_features; feature_index++) {
+		for (int data = 0; data < NUM_TRAIN_ENTRIES; data++) {
+			group_t *group = test_split(feature_index, train_set[data][feature_index], train_set); 
+			float gini = gini_index(train_set, group); 
+			if (gini < best_score) {
+				best_feature_index = feature_index; 
+				best_feature_value = train_set[data][feature_index]; 
+				best_score = gini; 
+				best_group = group; 
+			} 
+		}
+	}
+
+	node_t *node = create_node(best_feature_index, best_feature_value, node_depth); 
+
+	return node; 
+}
+
+void *split(node_t *node, int max_depth, int min_size, int n_features, float **train_set) {
+
+}
 
 
+node_t *build_tree(float **train_set, dataidxs_t *sample, int max_depth, int min_size, 
+					int n_features) {
+
+	node_t *root_node = get_split(train_set, n_features, 0);
+	split(root_node, max_depth, min_size, n_features, train_set); 
+
+	return root_node; 
+}
 
 
 // Dataset should be int **
