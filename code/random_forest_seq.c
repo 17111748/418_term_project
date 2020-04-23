@@ -10,7 +10,8 @@
 int NUM_ENTRIES_TOTAL = 569;
 int NUM_TEST_ENTRIES = 85; // Approx 15%
 int NUM_TRAIN_ENTRIES = 484; 
-int NUM_FEATURES = 30;
+// int NUM_FEATURES = 30;
+int NUM_FEATURES = 14; 
 
 int STACK_CAPACITY = 10000; 
 int QUEUE_CAPACITY = 10000; 
@@ -134,10 +135,11 @@ dataidxs_t* create_dataidxs(int n_entries) {
 }
 
 
+// Tested 
 /* Create a random subsample from the dataset with replacement */
 dataidxs_t* subsample(int n_entries, float percentage) {
 	int i;
-	int n_sample = (float)(n_entries * percentage) * 10 / 10; 
+	int n_sample = (float)(n_entries * percentage); 
 	dataidxs_t *sample = create_dataidxs(n_sample);
 	for (i = 0; i < n_sample; i++) {
 		int index = rand() % n_entries; 
@@ -146,14 +148,19 @@ dataidxs_t* subsample(int n_entries, float percentage) {
 	return sample; 
 }
 
+
+// Tested 
 float gini_index(float **train_set, group_t *group) {
 	dataidxs_t *left_idxs = group->left_idxs; 
 	dataidxs_t *right_idxs = group->right_idxs; 
 
 	int n_instances = left_idxs->n_entries + right_idxs->n_entries; 
+
+
 	float gini = 0.0; 
 	int k; 
 	float size, score, p0, p1; 
+	
 
 	// Left Side 
 	size = (float)(left_idxs->n_entries); 
@@ -164,7 +171,7 @@ float gini_index(float **train_set, group_t *group) {
 		for (k = 0; k < left_idxs->n_entries; k++) {
 			int index = left_idxs->data_idxs[k]; 
 			// get malign or not count 
-			if((int)train_set[index][NUM_FEATURES - 1] == 0) {
+			if((int)train_set[index][NUM_FEATURES] == 0) {
 				p0 += 1; 
 			}
 			else {
@@ -172,7 +179,8 @@ float gini_index(float **train_set, group_t *group) {
 			}
 		}
 		score += p0/size * p0/size;
-		gini += (1.0 - score) * (size / n_instances); 
+		score += p1/size * p1/size; 
+		gini += (1.0 - score) * (size / (float)n_instances); 
 	}
 
 	// Right Side 
@@ -183,7 +191,7 @@ float gini_index(float **train_set, group_t *group) {
 		p1 = 0.0; 
 		for (k = 0; k < right_idxs->n_entries; k++) {
 			int index = right_idxs->data_idxs[k]; 
-			if((int)train_set[index][NUM_FEATURES - 1] == 0) {
+			if(train_set[index][NUM_FEATURES] == 0.0) {
 				p0 += 1; 
 			}
 			else {
@@ -191,21 +199,24 @@ float gini_index(float **train_set, group_t *group) {
 			}
 		}
 		score += p0/size * p0/size;
-		gini += (1.0 - score) * (size / n_instances); 
+		score += p1/size * p1/size; 
+		gini += (1.0 - score) * (size / (float)n_instances); 
 	}
 	
 	return gini; 
 }
 
-group_t *test_split(int index, float value, float **train_set) {
+// Tested 
+group_t *test_split(int index, float value, float **train_set, dataidxs_t *dataset) {
 	dataidxs_t *left = create_dataidxs(NUM_TRAIN_ENTRIES); 
 	dataidxs_t *right = create_dataidxs(NUM_TRAIN_ENTRIES); 
+
 	int left_count = 0;
 	int right_count = 0; 
 
-	int row; 
-	
-	for (row = 0; row < NUM_TRAIN_ENTRIES; row++) {
+	int i; 
+	for (i = 0; i < dataset->n_entries; i++) {
+		int row = dataset->data_idxs[i]; 
 		if (train_set[row][index] < value) {
 			left->data_idxs[left_count] = row; 
 			left_count++; 
@@ -214,7 +225,7 @@ group_t *test_split(int index, float value, float **train_set) {
 			right->data_idxs[right_count] = row; 
 			right_count++; 
 		}
-	}
+	} 
 
 	left->n_entries = left_count; 
 	right->n_entries = right_count; 
@@ -255,13 +266,35 @@ node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int no
 		featureList[i] = index; 
 	}
 
+	// printf("FeatureList: \n"); 
+	
+	for(i = 0; i < n_features; i++){
+		featureList[i] = i;
+	}
+	
+	// featureList[0] = 0; 
+	// featureList[1] = 2; 
+	// featureList[2] = 4; 
+	// featureList[3] = 6;
+	// featureList[4] = 8; 
+	// featureList[5] = 10; 
+	// featureList[6] = 12; 
+
+	// featureList[0] = 2; 
+	// featureList[1] = 3; 
+	// featureList[2] = 1; 
+	// featureList[3] = 0;
+
+
+
+
 	// Selecting the best split with the lowest gini index 
 	for (index = 0; index < n_features; index++) {
 		for (indexD = 0; indexD < dataset->n_entries; indexD++) {
 			int feature_index = featureList[index]; 
 			int data_index = (dataset->data_idxs)[indexD]; 
 
-			group_t *group = test_split(feature_index, train_set[data_index][feature_index], train_set); 
+			group_t *group = test_split(feature_index, train_set[data_index][feature_index], train_set, dataset); 
 			gini = gini_index(train_set, group); 
 			if (gini < best_score) {
 				best_feature_index = feature_index; 
@@ -279,14 +312,14 @@ node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int no
 
 node_t *create_leaf(float **train_set, dataidxs_t *dataset, int node_depth) {
 	int yes_count = 0; 
-	int no_count = 1; 
+	int no_count = 0; 
 	int i; 
 	for (i = 0; i < dataset->n_entries; i++) {
 		int index = dataset->data_idxs[i]; 
-		if(train_set[index][NUM_FEATURES-1] == 1.0){
+		if(train_set[index][NUM_FEATURES] == 1.0){
 			yes_count++; 
 		}
-		else if(train_set[index][NUM_FEATURES-1] == 0.0) {
+		else if(train_set[index][NUM_FEATURES] == 0.0) {
 			no_count++; 
 		}
 		else {
@@ -303,55 +336,73 @@ node_t *create_leaf(float **train_set, dataidxs_t *dataset, int node_depth) {
 
 
 void split(node_t *node, int max_depth, int min_size, int n_features, float **train_set) {
-	group_t *group = node->group; 
-	dataidxs_t *left = group->left_idxs; 
-	dataidxs_t *right = group->right_idxs;
+	int i;
+	node_t *cur_node;
+	group_t *group;
+	dataidxs_t *left; 
+	dataidxs_t *right;
+	int max_capacity = 10000;
+	node_t **temp;
+	node_t **cur_level = malloc(sizeof(node_t*) * max_capacity);
+	node_t **next_level = malloc(sizeof(node_t*) * max_capacity);
+	int cur_level_count = 0;
+	int next_level_count = 0;
 
-	stack_t *stack = malloc(sizeof(stack_t)); 
+	cur_level[cur_level_count] = node;
+	cur_level_count++;
 
-	node_t *root = node; 
+	while (cur_level_count > 0) {
+		for (i = 0; i < cur_level_count; i++) {
+			cur_node = cur_level[i];
+			group = cur_node->group; 
+			left = group->left_idxs; 
+			right = group->right_idxs;
+			if (left->n_entries == 0 || right->n_entries == 0) {
+				int result;
+				if (left->n_entries == 0) {
+					result = create_leaf(train_set, right, cur_node->depth)->result;
+				}
+				else if (right->n_entries == 0) {
+					result = create_leaf(train_set, left, cur_node->depth)->result;
+				}
+				cur_node->leaf = true;
+				cur_node->result = result;
+				continue;
+				// Free the created leaf
+			}
 
-	// root->leaf means root != NULL 
-	while (!root->leaf) {
-		int depth = root->depth; 
-		if (left->n_entries == 0) {
-			root->left = create_leaf(train_set, left, depth + 1); 
-			root->right = create_leaf(train_set, left, depth + 1); 
-		}
-		else if (right->n_entries == 0) {
-			root->left = create_leaf(train_set, right, depth + 1); 
-			root->right = create_leaf(train_set, right, depth + 1); 
-		}
-		else if (depth >= max_depth) {
-			root->left = create_leaf(train_set, left, depth + 1); 
-			root->right = create_leaf(train_set, right, depth + 1); 
-		}
-		else {
-			if (left->n_entries > min_size) {
-				root->left = get_split(train_set, left, n_features, depth + 1);  // Fix what the get_split takes in
+			if (cur_node->depth >= max_depth - 1) {
+				cur_node->left = create_leaf(train_set, left, cur_node->depth + 1);
+				cur_node->right = create_leaf(train_set, right, cur_node->depth + 1);
+				continue;
+			}
+
+			if (left->n_entries <= min_size) {
+				cur_node->left = create_leaf(train_set, left, cur_node->depth + 1);
 			}
 			else {
-				root->left = create_leaf(train_set, left, depth + 1); 
+				cur_node->left = get_split(train_set, left, n_features, cur_node->depth + 1);
+				next_level[next_level_count] = cur_node->left;
+				next_level_count++;
+				if (next_level_count >= max_capacity) printf("\n\nERROR IN SPLIT: MAX CAPACITY REACHED\n\n");
 			}
-
-			if (right->n_entries > min_size) {
-				root->right = get_split(train_set, right, n_features, depth + 1); 
-				stack_push(stack, root->right); 
+			if (right->n_entries <= min_size) {
+				cur_node->right = create_leaf(train_set, right, cur_node->depth + 1);
 			}
-
+			else {
+				cur_node->right = get_split(train_set, right, n_features, cur_node->depth + 1);
+				next_level[next_level_count] = cur_node->right;
+				next_level_count++;
+				if (next_level_count >= max_capacity) printf("\n\nERROR IN SPLIT: MAX CAPACITY REACHED\n\n");
+			}
 		}
 
-		// Update the value of the root 
-		if (!root->left->leaf){
-			root = root->left; 
-		}
-		else {
-			root = stack_pop(stack); 
-		}
-		left = root->group->left_idxs; 
-		right = root->group->right_idxs; 
+		temp = cur_level;
+		cur_level_count = next_level_count;
+		cur_level = next_level;
+		next_level_count = 0;
+		next_level = temp;
 	}
-
 }
 
 
@@ -370,10 +421,12 @@ node_t *build_tree(float **train_set, dataidxs_t *sample, int max_depth, int min
 int predict(tree_t *tree, float **test_set, int row) {
 	node_t *cur_node = tree->root_node; 
 	float *test_row = test_set[row]; 
+	
 	int feature; 
 	float feature_value; 
 	if (cur_node == NULL) return -1; 
-	while ((cur_node->left == NULL) && (cur_node->right == NULL)) {
+	// while ((cur_node->left == NULL) && (cur_node->right == NULL)) {
+	while(cur_node->leaf != true) {
 		feature = cur_node->feature; 
 		feature_value = cur_node->feature_value; 
 		if (test_row[feature] < feature_value) {
@@ -395,17 +448,18 @@ int bagging_predict(tree_t **tree_list, int n_trees, float **test_set, int row) 
 	int predict_1 = 0;  
 	for (i = 0; i < n_trees; i++) {
 		prediction = predict(tree_list[i], test_set, row); 
+		printf("Prediction: %d\n", prediction); 
 		if (prediction == 0) predict_0++; 
 		else if (prediction == 1) predict_1++; 
 	}
-
+	printf("\n"); 
 	return (predict_0 > predict_1) ? 0 : 1; 
 }
 
 
 // Dataset should be int **
 int* random_forest(float **train_set, float **test_set, int train_len, int test_len,
-				   int max_depth, int min_size, int percentage,
+				   int max_depth, int min_size, float percentage,
 				   int n_trees, int n_features) {
 
 	tree_t **tree_list = malloc(n_trees * sizeof(tree_t*)); 
@@ -420,6 +474,7 @@ int* random_forest(float **train_set, float **test_set, int train_len, int test_
 		tree_list[tree_index] = tree; 
 	}
 
+
 	int row; 
 	int *predictions = malloc(test_len * sizeof(int)); 
 	for (row = 0; row < test_len; row++) {
@@ -429,77 +484,3 @@ int* random_forest(float **train_set, float **test_set, int train_len, int test_
 }
 
 
-int main() {
-	return 0; 
-}
-
-
-
-
-
-// public static Tree builtBSTFromSortedArray(int[] inputArray){
-
-//     Stack toBeDone=new Stack("sub trees to be created under these nodes");
-
-//     //initialize start and end 
-//     int start=0;
-//     int end=inputArray.length-1;
-
-//     //keep memoy of the position (in the array) of the previously created node
-//     int previous_end=end;
-//     int previous_start=start;
-
-//     //Create the result tree 
-//     Node root=new Node(inputArray[(start+end)/2]);
-//     Tree result=new Tree(root);
-//     while(root!=null){
-//         System.out.println("Current root="+root.data);
-
-//         //calculate last middle (last node position using the last start and last end)
-//         int last_mid=(previous_start+previous_end)/2;
-
-//         //*********** add left node to the previously created node ***********
-//         //calculate new start and new end positions
-//         //end is the previous index position minus 1
-//         end=last_mid-1; 
-//         //start will not change for left nodes generation
-//         start=previous_start; 
-//         //check if the index exists in the array and add the left node
-//         if (end>=start){
-//             root.left=new Node(inputArray[((start+end)/2)]);
-//             System.out.println("\tCurrent root.left="+root.left.data);
-//         }
-//         else
-//             root.left=null;
-//         //save previous_end value (to be used in right node creation)
-//         int previous_end_bck=previous_end;
-//         //update previous end
-//         previous_end=end;
-
-//         //*********** add right node to the previously created node ***********
-//         //get the initial value (inside the current iteration) of previous end
-//         end=previous_end_bck;
-//         //start is the previous index position plus one
-//         start=last_mid+1;
-//         //check if the index exists in the array and add the right node
-//         if (start<=end){
-//             root.right=new Node(inputArray[((start+end)/2)]);
-//             System.out.println("\tCurrent root.right="+root.right.data);
-//             //save the created node and its index position (start & end) in the array to toBeDone stack
-//             toBeDone.push(root.right);
-//             toBeDone.push(new Node(start));
-//             toBeDone.push(new Node(end));   
-//         }
-
-//         //*********** update the value of root ***********
-//         if (root.left!=null){
-//             root=root.left; 
-//         }
-//         else{
-//             if (toBeDone.top!=null) previous_end=toBeDone.pop().data;
-//             if (toBeDone.top!=null) previous_start=toBeDone.pop().data;
-//             root=toBeDone.pop();    
-//         }
-//     }
-//     return result;  
-// }
