@@ -8,9 +8,12 @@
 #include <math.h>
 #include <string.h>
 
+#include <omp.h>
+#include "cycletimer.h"
+
 // int NUM_ENTRIES_TOTAL = 569;
 // int NUM_TEST_ENTRIES = 85; // Approx 15%
-int NUM_TRAIN_ENTRIES = 484; 
+// int NUM_TRAIN_ENTRIES = 484; 
 int NUM_FEATURES = 30;
 // int NUM_FEATURES = 14; 
 
@@ -214,8 +217,8 @@ float gini_index(float **train_set, group_t *group, int n_features) {
 
 // Tested 
 group_t *test_split(int index, float value, float **train_set, dataidxs_t *dataset) {
-	dataidxs_t *left = create_dataidxs(NUM_TRAIN_ENTRIES); 
-	dataidxs_t *right = create_dataidxs(NUM_TRAIN_ENTRIES); 
+	dataidxs_t *left = create_dataidxs(dataset->n_entries); 
+	dataidxs_t *right = create_dataidxs(dataset->n_entries); 
 
 	int left_count = 0;
 	int right_count = 0; 
@@ -415,10 +418,8 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 
 node_t *build_tree(float **train_set, dataidxs_t *sample, int max_depth, int min_size, 
 					int n_features) {
-
 	node_t *root_node = get_split(train_set, sample, n_features, 0);
 	split(root_node, max_depth, min_size, n_features, train_set); 
-
 	return root_node; 
 }
 
@@ -452,13 +453,23 @@ int bagging_predict(tree_t **tree_list, int n_trees, float **test_set, int row) 
 	int prediction; 
 	int predict_0 = 0;  
 	int predict_1 = 0;  
+
+	// double startPredict, endPredict; 
 	for (i = 0; i < n_trees; i++) {
+		// if (i == 0) {
+		// 	startPredict = currentSeconds(); 
+		// }
 		prediction = predict(tree_list[i], test_set, row); 
-		// printf("Prediction: %d\n", prediction); 
+		// if (i == 0) {
+		// 	endPredict = currentSeconds(); 
+		// 	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+		// 	printf("Time to Predict From One Tree (bagging_predict) %f\n", endPredict - startPredict); 
+		// 	printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+		// }
 		if (prediction == 0) predict_0++; 
 		else if (prediction == 1) predict_1++; 
 	}
-	// printf("\n"); 
+
 	return (predict_0 > predict_1) ? 0 : 1; 
 }
 
@@ -468,24 +479,56 @@ float random_forest(float **train_set, float **test_set, int train_len, int test
 				   int max_depth, int min_size, float percentage,
 				   int n_trees, int n_features) {
 
+	double startSingleTree; 
+	double endSingleTree; 
+
 	tree_t **tree_list = malloc(n_trees * sizeof(tree_t*)); 
 
 	int tree_index;
 
+	double startSeconds = currentSeconds();
+
 	for (tree_index = 0; tree_index < n_trees; tree_index++) {
 		dataidxs_t *sample = subsample(train_len, percentage); 
+		if (tree_index == 0) {
+			startSingleTree = currentSeconds(); 
+		}
 		node_t *root_node = build_tree(train_set, sample, max_depth, min_size, n_features); 
+		if (tree_index == 0) {
+			endSingleTree = currentSeconds(); 
+			printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+			printf("Time for a single tree (build_tree) %f\n", endSingleTree - startSingleTree); 
+			printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n");
+		}
+
 		tree_t *tree = malloc(sizeof(tree_t)); 
 		tree->root_node = root_node; 
 		tree_list[tree_index] = tree; 
 	}
+
+	double endSeconds = currentSeconds(); 
+	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+	printf("Time to Build Forest (random_forest) %f\n", endSeconds - startSeconds); 
+	printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n");
+
+	double startPredict = currentSeconds();
+	double startBagging, endBagging; 
 
 	int row, prediction;
 	int correct = 0;
 	int incorrect = 0;
 	// int *predictions = malloc(test_len * sizeof(int)); 
 	for (row = 0; row < test_len; row++) {
+		if (row == 0) {
+			startBagging = currentSeconds(); 
+		}
 		prediction = bagging_predict(tree_list, n_trees, test_set, row);
+		if (row == 0) {
+			endBagging = currentSeconds(); 
+			printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+			printf("Time to Predict One Row (random_forest) %f\n", endBagging - startBagging); 
+			printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n");
+		}
 		if (float_equal((float) prediction, test_set[row][n_features])) {
 			correct++;
 		}
@@ -493,6 +536,11 @@ float random_forest(float **train_set, float **test_set, int train_len, int test
 			incorrect++;
 		}
 	}
+
+	double endPredict = currentSeconds(); 
+	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+	printf("Time to Predict All Rows (random_forest) %f\n", endPredict - startPredict); 
+	printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n");
 
 	return ((float) correct) / ((float) test_len) * 100.0;
 }
@@ -512,8 +560,8 @@ float* get_row(char* line, int num)
 
 int main()
 {
-    FILE* stream = fopen("../data/clean_data.csv", "r");
-    float **data = malloc(sizeof(float *) * 10000);
+    FILE* stream = fopen("../data/x5_clean_data.csv", "r");
+    float **data = malloc(sizeof(float *) * 100000);
     char line[4096];
     int count = 0;
     while (fgets(line, 4096, stream))
@@ -525,10 +573,20 @@ int main()
         free(tmp);
     }
 
-    float accuracy = random_forest(&data[0], &data[NUM_TRAIN_ENTRIES], NUM_TRAIN_ENTRIES,
-    				count - NUM_TRAIN_ENTRIES, 15, 2, 1.0, 15, NUM_FEATURES);
+    int n_train_entries = (int)(0.8*(float)count);
+
+    float accuracy = random_forest(
+    					&data[0],						// train set
+    					&data[n_train_entries],			// test set
+    					n_train_entries,				// n_train_entries
+    					count - n_train_entries,		// n_test_entries
+    					10, 							// max depth
+    					10,								// min size
+    					1.0,							// ratio
+    					3,								// n_trees
+    					NUM_FEATURES);					// n_features (no. cols in dataset - 1)
 
     printf("accuracy: %f\n", accuracy);
 
-
+    return 0; 
 }
