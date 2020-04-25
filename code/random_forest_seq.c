@@ -8,8 +8,8 @@
 #include <math.h>
 #include <string.h>
 
-int NUM_ENTRIES_TOTAL = 569;
-int NUM_TEST_ENTRIES = 85; // Approx 15%
+// int NUM_ENTRIES_TOTAL = 569;
+// int NUM_TEST_ENTRIES = 85; // Approx 15%
 int NUM_TRAIN_ENTRIES = 484; 
 int NUM_FEATURES = 30;
 // int NUM_FEATURES = 14; 
@@ -56,6 +56,11 @@ typedef struct queue {
 	node_t **nodeList; 
 } queue_t; 
 
+bool float_equal(float a, float b)
+{
+	float epsilon = 0.00001;
+ 	return fabs(a - b) < epsilon;
+}
 
 stack_t *create_stack() {
 	stack_t *stack = malloc(sizeof(stack_t)); 
@@ -151,7 +156,7 @@ dataidxs_t* subsample(int n_entries, float percentage) {
 
 
 // Tested 
-float gini_index(float **train_set, group_t *group) {
+float gini_index(float **train_set, group_t *group, int n_features) {
 	dataidxs_t *left_idxs = group->left_idxs; 
 	dataidxs_t *right_idxs = group->right_idxs; 
 
@@ -172,7 +177,7 @@ float gini_index(float **train_set, group_t *group) {
 		for (k = 0; k < left_idxs->n_entries; k++) {
 			int index = left_idxs->data_idxs[k]; 
 			// get malign or not count 
-			if((int)train_set[index][NUM_FEATURES] == 0) {
+			if (float_equal(train_set[index][n_features], 0.0)) {
 				p0 += 1; 
 			}
 			else {
@@ -192,11 +197,11 @@ float gini_index(float **train_set, group_t *group) {
 		p1 = 0.0; 
 		for (k = 0; k < right_idxs->n_entries; k++) {
 			int index = right_idxs->data_idxs[k]; 
-			if(train_set[index][NUM_FEATURES] == 0.0) {
-				p0 += 1; 
+			if (float_equal(train_set[index][n_features], 0.0)) {
+				p0 += 1;
 			}
 			else {
-				p1 += 1; 
+				p1 += 1;
 			}
 		}
 		score += p0/size * p0/size;
@@ -242,7 +247,7 @@ node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int no
 	int best_feature_index = -1; 
 	float best_feature_value = -1; 
 	float best_score = (float)INT_MAX; 
-	group_t *best_group = NULL; 
+	group_t *best_group = NULL;
 
 	int index; 
 	int count; 
@@ -296,7 +301,7 @@ node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int no
 			int data_index = (dataset->data_idxs)[indexD]; 
 
 			group_t *group = test_split(feature_index, train_set[data_index][feature_index], train_set, dataset); 
-			gini = gini_index(train_set, group); 
+			gini = gini_index(train_set, group, n_features); 
 			if (gini < best_score) {
 				best_feature_index = feature_index; 
 				best_feature_value = train_set[data_index][feature_index]; 
@@ -311,16 +316,17 @@ node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int no
 	return node; 
 }
 
-node_t *create_leaf(float **train_set, dataidxs_t *dataset, int node_depth) {
+
+node_t *create_leaf(float **train_set, dataidxs_t *dataset, int node_depth, int n_features) {
 	int yes_count = 0; 
 	int no_count = 0; 
 	int i; 
 	for (i = 0; i < dataset->n_entries; i++) {
 		int index = dataset->data_idxs[i]; 
-		if(train_set[index][NUM_FEATURES] == 1.0){
+		if (float_equal(train_set[index][n_features], 1.0)) {
 			yes_count++; 
 		}
-		else if(train_set[index][NUM_FEATURES] == 0.0) {
+		else if (float_equal(train_set[index][n_features], 0.0)) {
 			no_count++; 
 		}
 		else {
@@ -361,10 +367,10 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 			if (left->n_entries == 0 || right->n_entries == 0) {
 				int result;
 				if (left->n_entries == 0) {
-					result = create_leaf(train_set, right, cur_node->depth)->result;
+					result = create_leaf(train_set, right, cur_node->depth, n_features)->result;
 				}
 				else if (right->n_entries == 0) {
-					result = create_leaf(train_set, left, cur_node->depth)->result;
+					result = create_leaf(train_set, left, cur_node->depth, n_features)->result;
 				}
 				cur_node->leaf = true;
 				cur_node->result = result;
@@ -373,13 +379,13 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 			}
 
 			if (cur_node->depth >= max_depth - 1) {
-				cur_node->left = create_leaf(train_set, left, cur_node->depth + 1);
-				cur_node->right = create_leaf(train_set, right, cur_node->depth + 1);
+				cur_node->left = create_leaf(train_set, left, cur_node->depth + 1, n_features);
+				cur_node->right = create_leaf(train_set, right, cur_node->depth + 1, n_features);
 				continue;
 			}
 
 			if (left->n_entries <= min_size) {
-				cur_node->left = create_leaf(train_set, left, cur_node->depth + 1);
+				cur_node->left = create_leaf(train_set, left, cur_node->depth + 1, n_features);
 			}
 			else {
 				cur_node->left = get_split(train_set, left, n_features, cur_node->depth + 1);
@@ -388,7 +394,7 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 				if (next_level_count >= max_capacity) printf("\n\nERROR IN SPLIT: MAX CAPACITY REACHED\n\n");
 			}
 			if (right->n_entries <= min_size) {
-				cur_node->right = create_leaf(train_set, right, cur_node->depth + 1);
+				cur_node->right = create_leaf(train_set, right, cur_node->depth + 1, n_features);
 			}
 			else {
 				cur_node->right = get_split(train_set, right, n_features, cur_node->depth + 1);
@@ -415,7 +421,6 @@ node_t *build_tree(float **train_set, dataidxs_t *sample, int max_depth, int min
 
 	return root_node; 
 }
-
 
 
 // Pass in n_trees
@@ -449,23 +454,23 @@ int bagging_predict(tree_t **tree_list, int n_trees, float **test_set, int row) 
 	int predict_1 = 0;  
 	for (i = 0; i < n_trees; i++) {
 		prediction = predict(tree_list[i], test_set, row); 
-		printf("Prediction: %d\n", prediction); 
+		// printf("Prediction: %d\n", prediction); 
 		if (prediction == 0) predict_0++; 
 		else if (prediction == 1) predict_1++; 
 	}
-	printf("\n"); 
+	// printf("\n"); 
 	return (predict_0 > predict_1) ? 0 : 1; 
 }
 
 
 // Dataset should be int **
-int* random_forest(float **train_set, float **test_set, int train_len, int test_len,
+float random_forest(float **train_set, float **test_set, int train_len, int test_len,
 				   int max_depth, int min_size, float percentage,
 				   int n_trees, int n_features) {
 
 	tree_t **tree_list = malloc(n_trees * sizeof(tree_t*)); 
 
-	int tree_index; 
+	int tree_index;
 
 	for (tree_index = 0; tree_index < n_trees; tree_index++) {
 		dataidxs_t *sample = subsample(train_len, percentage); 
@@ -475,13 +480,21 @@ int* random_forest(float **train_set, float **test_set, int train_len, int test_
 		tree_list[tree_index] = tree; 
 	}
 
-
-	int row; 
-	int *predictions = malloc(test_len * sizeof(int)); 
+	int row, prediction;
+	int correct = 0;
+	int incorrect = 0;
+	// int *predictions = malloc(test_len * sizeof(int)); 
 	for (row = 0; row < test_len; row++) {
-		predictions[row] = bagging_predict(tree_list, n_trees, test_set, row); 
+		prediction = bagging_predict(tree_list, n_trees, test_set, row);
+		if (float_equal((float) prediction, test_set[row][n_features])) {
+			correct++;
+		}
+		else {
+			incorrect++;
+		}
 	}
-	return predictions; 
+
+	return ((float) correct) / ((float) test_len) * 100.0;
 }
 
 
@@ -491,17 +504,9 @@ float* get_row(char* line, int num)
     float *arr = malloc(sizeof(float) * 40);
     int i;
     for (i = 0; i < num; i++) {
-    	// printf(tok);
-    	// printf("\n");
     	arr[i] = atof(tok);
     	tok = strtok(NULL, ",");
     }
-    // for (tok = strtok(line, ","); tok && *tok; tok = strtok(NULL, ",\n"))
-    // {
-    // 	num--;
-    // 	arr[]
-    //     if (!num) break;
-    // }
     return arr;
 }
 
@@ -514,14 +519,16 @@ int main()
     while (fgets(line, 4096, stream))
     {
         char* tmp = strdup(line);
-       	int n = 31;
-       	float *arr = get_row(tmp, n);
+       	float *arr = get_row(tmp, NUM_FEATURES+1);
        	data[count] = arr;
        	count++;
-        // NOTE strtok clobbers tmp
         free(tmp);
     }
 
+    float accuracy = random_forest(&data[0], &data[NUM_TRAIN_ENTRIES], NUM_TRAIN_ENTRIES,
+    				count - NUM_TRAIN_ENTRIES, 15, 2, 1.0, 15, NUM_FEATURES);
 
-    
+    printf("accuracy: %f\n", accuracy);
+
+
 }
