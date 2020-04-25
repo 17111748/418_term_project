@@ -6,12 +6,13 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 
 int NUM_ENTRIES_TOTAL = 569;
 int NUM_TEST_ENTRIES = 85; // Approx 15%
 int NUM_TRAIN_ENTRIES = 484; 
-// int NUM_FEATURES = 30;
-int NUM_FEATURES = 14; 
+int NUM_FEATURES = 30;
+// int NUM_FEATURES = 14; 
 
 int STACK_CAPACITY = 10000; 
 int QUEUE_CAPACITY = 10000; 
@@ -484,3 +485,43 @@ int* random_forest(float **train_set, float **test_set, int train_len, int test_
 }
 
 
+float* get_row(char* line, int num)
+{
+    const char* tok = strtok(line, ",");
+    float *arr = malloc(sizeof(float) * 40);
+    int i;
+    for (i = 0; i < num; i++) {
+    	// printf(tok);
+    	// printf("\n");
+    	arr[i] = atof(tok);
+    	tok = strtok(NULL, ",");
+    }
+    // for (tok = strtok(line, ","); tok && *tok; tok = strtok(NULL, ",\n"))
+    // {
+    // 	num--;
+    // 	arr[]
+    //     if (!num) break;
+    // }
+    return arr;
+}
+
+int main()
+{
+    FILE* stream = fopen("../data/clean_data.csv", "r");
+    float **data = malloc(sizeof(float *) * 10000);
+    char line[4096];
+    int count = 0;
+    while (fgets(line, 4096, stream))
+    {
+        char* tmp = strdup(line);
+       	int n = 31;
+       	float *arr = get_row(tmp, n);
+       	data[count] = arr;
+       	count++;
+        // NOTE strtok clobbers tmp
+        free(tmp);
+    }
+
+
+    
+}
