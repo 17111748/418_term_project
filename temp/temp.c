@@ -9,14 +9,20 @@
 
 int main()
 {
-    long i, y;
+    int i, j, y;
     double startSeconds = currentSeconds();
+    int* temp = malloc(sizeof(int) * 1000); 
+
     // clock_t start = clock(), diff; 
     // ProcessIntenseFunction(); 
     //#pragma omp parallel for
     for (i = 0; i < 100000000; i++){
-        y = 2 * i;
+        for (j = 0; j < 1000; j++) {
+            temp[j] = 2 * i; 
+        }
     }
+
+    y = temp[555]; 
     double endSeconds = currentSeconds();
     // diff = clock() - start; 
     // int msec = diff * 1000 / CLOCKS_PER_SEC; 
