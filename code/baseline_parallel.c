@@ -642,10 +642,27 @@ int main(int argc, char **argv)
     	case 3: //large
     		stream = fopen("../data/large_clean_data.csv", "r");
     		break;
+    	case 4: // random, n=10
+    		stream = fopen("../data/random_data_n_10.csv", "r");
+    		break;
+		case 5: // random, n=100
+			stream = fopen("../data/random_data_n_100.csv", "r");
+			break;
+		case 6: // random, n=1000
+    		stream = fopen("../data/random_data_n_1000.csv", "r");
+    		break;
+    	case 7: // random, n=10000
+    		stream = fopen("../data/random_data_n_10000.csv", "r");
+    		break;
+    	case 8: // random, n=20000
+    		stream = fopen("../data/random_data_n_20000.csv", "r");
+    		break;
     	default:
     		stream = fopen("../data/clean_data.csv", "r");
     		break;
 	}
+
+	double startSeconds = currentSeconds();
 
     float **data = malloc(sizeof(float *) * 100000);
     char line[4096];
@@ -660,6 +677,11 @@ int main(int argc, char **argv)
     }
 
     int n_train_entries = (int)(0.8*(float)count);
+
+    double endSeconds = currentSeconds(); 
+	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+	printf("Time to read and initialize data: %f\n", endSeconds - startSeconds); 
+	printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n");
 
     float accuracy = random_forest(
     					&data[0],						// train set
