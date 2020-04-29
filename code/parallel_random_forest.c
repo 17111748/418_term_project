@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-
+#include <getopt.h>
 #include <omp.h>
 #include "cycletimer.h"
 
@@ -65,61 +65,61 @@ bool float_equal(float a, float b)
  	return fabs(a - b) < epsilon;
 }
 
-stack_t *create_stack() {
-	stack_t *stack = malloc(sizeof(stack_t)); 
-	stack->end = 0; 
-	stack->capacity = STACK_CAPACITY; 
-	stack->nodeList = malloc(sizeof(node_t*) * stack->capacity); 
-	return stack; 
-}
+// stack_t *create_stack() {
+// 	stack_t *stack = malloc(sizeof(stack_t)); 
+// 	stack->end = 0; 
+// 	stack->capacity = STACK_CAPACITY; 
+// 	stack->nodeList = malloc(sizeof(node_t*) * stack->capacity); 
+// 	return stack; 
+// }
 
-bool stack_isEmpty(stack_t *stack) {
-	return stack->end == 0; 
-}
+// bool stack_isEmpty(stack_t *stack) {
+// 	return stack->end == 0; 
+// }
 
-void stack_push(stack_t *stack, node_t *node) {
-	if (stack->end == stack->capacity) {
-		printf("Failed to Push onto Stack \n"); 
-		return; 
-	}
-	stack->nodeList[stack->end] = node; 
-	stack->end = stack->end + 1; 
-}
+// void stack_push(stack_t *stack, node_t *node) {
+// 	if (stack->end == stack->capacity) {
+// 		printf("Failed to Push onto Stack \n"); 
+// 		return; 
+// 	}
+// 	stack->nodeList[stack->end] = node; 
+// 	stack->end = stack->end + 1; 
+// }
 
-node_t *stack_pop(stack_t *stack) {
-	if (stack->end == 0) return NULL; 
-	stack->end = stack->end - 1; 
-	return stack->nodeList[stack->end + 1]; 
-}
+// node_t *stack_pop(stack_t *stack) {
+// 	if (stack->end == 0) return NULL; 
+// 	stack->end = stack->end - 1; 
+// 	return stack->nodeList[stack->end + 1]; 
+// }
 
-queue_t *create_queue() {
-	queue_t *queue = malloc(sizeof(queue_t)); 
-	queue->start = 0; 
-	queue->end = 0; 
-	queue->capacity = QUEUE_CAPACITY; 
-	queue->nodeList = malloc(sizeof(node_t*) * queue->capacity); 
-	return queue; 
-}
+// queue_t *create_queue() {
+// 	queue_t *queue = malloc(sizeof(queue_t)); 
+// 	queue->start = 0; 
+// 	queue->end = 0; 
+// 	queue->capacity = QUEUE_CAPACITY; 
+// 	queue->nodeList = malloc(sizeof(node_t*) * queue->capacity); 
+// 	return queue; 
+// }
 
-bool queue_isEmpty(queue_t *queue) {
-	return (queue->start == queue->end) && !(((queue->end + 1) % queue->capacity) == queue->start); 
-}
+// bool queue_isEmpty(queue_t *queue) {
+// 	return (queue->start == queue->end) && !(((queue->end + 1) % queue->capacity) == queue->start); 
+// }
 
-void queue_push(queue_t *queue, node_t *node) {
-	if(((queue->end + 1) % queue->capacity) == queue->start) {
-		printf("Failed to Push onto Queue \n"); 
-		return; 
-	}
-	queue->nodeList[queue->end] = node; 
-	queue->end = (queue->end + 1) % queue->capacity; 
-}
+// void queue_push(queue_t *queue, node_t *node) {
+// 	if(((queue->end + 1) % queue->capacity) == queue->start) {
+// 		printf("Failed to Push onto Queue \n"); 
+// 		return; 
+// 	}
+// 	queue->nodeList[queue->end] = node; 
+// 	queue->end = (queue->end + 1) % queue->capacity; 
+// }
 
-node_t *queue_pop(queue_t *queue) {
-	if (queue->end == queue->start) return NULL; 
-	node_t *node = queue->nodeList[queue->start]; 
-	queue->start = (queue->start + 1) % queue->capacity; 
-	return node; 
-}
+// node_t *queue_pop(queue_t *queue) {
+// 	if (queue->end == queue->start) return NULL; 
+// 	node_t *node = queue->nodeList[queue->start]; 
+// 	queue->start = (queue->start + 1) % queue->capacity; 
+// 	return node; 
+// }
 
 
 node_t* create_node(int feature, float feature_value, group_t *group, int depth) {
@@ -246,6 +246,42 @@ group_t *test_split(int index, float value, float **train_set, dataidxs_t *datas
 	return group; 
 }
 
+void free_group(group_t *group) {
+	free(group->left_idxs->data_idxs);
+	free(group->left_idxs);
+	free(group->right_idxs->data_idxs);
+	free(group->right_idxs);
+	free(group);
+}
+
+void free_tree_groups(node_t *node) {
+	if (node->leaf) {
+		return;
+	}
+	free_group(node->group);
+	if (node->left) {
+		free_tree_groups(node->left);
+	}
+	else if (node->right) {
+		free_tree_groups(node->right);
+	}
+}
+
+void free_tree(node_t *node) {
+	if (node->leaf) {
+		free(node);
+		return;
+	}
+	if (node->left) {
+		free_tree(node->left);
+	}
+	else if (node->right) {
+		free_tree(node->right);
+	}
+	free(node);
+}
+
+
 node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int node_depth) {
 	int best_feature_index = -1; 
 	float best_feature_value = -1; 
@@ -310,13 +346,16 @@ node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int no
 				best_feature_value = train_set[data_index][feature_index]; 
 				best_score = gini; 
 				best_group = group; 
-			} 
+			}
+			else {
+				free_group(group);
+			}
 		}
 	}
 
 	node_t *node = create_node(best_feature_index, best_feature_value, best_group, node_depth); 
 
-	return node; 
+	return node;
 }
 
 
@@ -352,6 +391,7 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 	dataidxs_t *left; 
 	dataidxs_t *right;
 	int max_capacity = 10000;
+	node_t *temp_node;
 	node_t **temp;
 	node_t **cur_level = malloc(sizeof(node_t*) * max_capacity);
 	node_t **next_level = malloc(sizeof(node_t*) * max_capacity);
@@ -368,17 +408,19 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 			left = group->left_idxs; 
 			right = group->right_idxs;
 			if (left->n_entries == 0 || right->n_entries == 0) {
-				int result;
 				if (left->n_entries == 0) {
-					result = create_leaf(train_set, right, cur_node->depth, n_features)->result;
+					temp_node = create_leaf(train_set, right, cur_node->depth, n_features);
 				}
-				else if (right->n_entries == 0) {
-					result = create_leaf(train_set, left, cur_node->depth, n_features)->result;
+				else {
+				// else if (right->n_entries == 0) {
+					temp_node = create_leaf(train_set, left, cur_node->depth, n_features);
 				}
 				cur_node->leaf = true;
-				cur_node->result = result;
+				cur_node->result = temp_node->result;
+				free_tree_groups(cur_node);
+				free_tree_groups(temp_node);
+				free(temp_node);
 				continue;
-				// Free the created leaf
 			}
 
 			if (cur_node->depth >= max_depth - 1) {
@@ -413,6 +455,9 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 		next_level_count = 0;
 		next_level = temp;
 	}
+
+	free(cur_level);
+	free(next_level);
 }
 
 
@@ -488,6 +533,7 @@ float random_forest(float **train_set, float **test_set, int train_len, int test
 
 	double startSeconds = currentSeconds();
 
+	#pragma omp parallel for //schedule(dynamic)
 	for (tree_index = 0; tree_index < n_trees; tree_index++) {
 		dataidxs_t *sample = subsample(train_len, percentage); 
 		if (tree_index == 0) {
@@ -504,11 +550,16 @@ float random_forest(float **train_set, float **test_set, int train_len, int test
 		tree_t *tree = malloc(sizeof(tree_t)); 
 		tree->root_node = root_node; 
 		tree_list[tree_index] = tree; 
+
+		free(sample->data_idxs);
+		free(sample);
+
+		free_tree_groups(root_node);
 	}
 
 	double endSeconds = currentSeconds(); 
 	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
-	printf("Time to Build Forest (random_forest) %f\n", endSeconds - startSeconds); 
+	printf("Time to Build Forest - %d trees (random_forest) %f\n", n_trees, endSeconds - startSeconds); 
 	printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n");
 
 	double startPredict = currentSeconds();
@@ -542,6 +593,12 @@ float random_forest(float **train_set, float **test_set, int train_len, int test
 	printf("Time to Predict All Rows (random_forest) %f\n", endPredict - startPredict); 
 	printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n");
 
+	for (tree_index = 0; tree_index < n_trees; tree_index++) {
+		free_tree(tree_list[tree_index]->root_node);
+		free(tree_list[tree_index]);
+	}
+	free(tree_list);
+
 	return ((float) correct) / ((float) test_len) * 100.0;
 }
 
@@ -558,9 +615,53 @@ float* get_row(char* line, int num)
     return arr;
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    FILE* stream = fopen("../data/x5_clean_data.csv", "r");
+	extern char *optarg; 
+
+	int num_threads = 1; 
+	int file_size = 0; 
+
+	int opt;
+
+	while ((opt = getopt(argc, argv, "t:f:")) != -1) {
+		switch (opt) {
+			case 't': 
+				num_threads = atoi(optarg);  
+				break;
+
+			case 'f': 
+				file_size = atoi(optarg); 
+				break;  
+
+			default: 
+				fprintf(stderr, "Error- Invalid opt: %s\n", opt); 
+				exit(1); 
+		}
+	}
+
+	omp_set_num_threads(num_threads);
+	// omp_set_num_threads(8);
+
+    FILE* stream;
+	switch (file_size) {
+		case 0: //xsmall
+    		stream = fopen("../data/clean_data.csv", "r");
+    		break;
+		case 1: //small
+    		stream = fopen("../data/x5_clean_data.csv", "r");
+    		break;
+    	case 2: //medium
+    		stream = fopen("../data/medium_clean_data.csv", "r");
+    		break;
+    	case 3: //large
+    		stream = fopen("../data/large_clean_data.csv", "r");
+    		break;
+    	default:
+    		stream = fopen("../data/clean_data.csv", "r");
+    		break;
+	}
+
     float **data = malloc(sizeof(float *) * 100000);
     char line[4096];
     int count = 0;
@@ -583,10 +684,18 @@ int main()
     					10, 							// max depth
     					10,								// min size
     					1.0,							// ratio
-    					3,								// n_trees
+    					300,								// n_trees
     					NUM_FEATURES);					// n_features (no. cols in dataset - 1)
 
+
     printf("accuracy: %f\n", accuracy);
+
+    int i;
+
+    for (i = 0; i < count; i++) {
+    	free(data[i]);
+    }
+    free(data);
 
     return 0; 
 }
