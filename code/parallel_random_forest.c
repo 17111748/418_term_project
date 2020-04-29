@@ -310,30 +310,14 @@ node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int no
 		}
 		featureList[i] = index; 
 	}
-
-	// printf("FeatureList: \n"); 
 	
-	for(i = 0; i < n_features; i++){
-		featureList[i] = i;
-	}
-	
-	// featureList[0] = 0; 
-	// featureList[1] = 2; 
-	// featureList[2] = 4; 
-	// featureList[3] = 6;
-	// featureList[4] = 8; 
-	// featureList[5] = 10; 
-	// featureList[6] = 12; 
+	// for (i = 0; i < n_features; i++) {
+	// 	featureList[i] = i;
+	// }
 
-	// featureList[0] = 2; 
-	// featureList[1] = 3; 
-	// featureList[2] = 1; 
-	// featureList[3] = 0;
+	// Selecting the best split with the lowest gini index
 
-
-
-
-	// Selecting the best split with the lowest gini index 
+	// #pragma omp parallel
 	for (index = 0; index < n_features; index++) {
 		for (indexD = 0; indexD < dataset->n_entries; indexD++) {
 			int feature_index = featureList[index]; 
@@ -402,6 +386,7 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 	cur_level_count++;
 
 	while (cur_level_count > 0) {
+		// printf("CUR_LEVEL_COUNT: %d\n", cur_level_count);
 		for (i = 0; i < cur_level_count; i++) {
 			cur_node = cur_level[i];
 			group = cur_node->group; 
@@ -533,7 +518,7 @@ float random_forest(float **train_set, float **test_set, int train_len, int test
 
 	double startSeconds = currentSeconds();
 
-	#pragma omp parallel for //schedule(dynamic)
+	// #pragma omp parallel for //schedule(dynamic)
 	for (tree_index = 0; tree_index < n_trees; tree_index++) {
 		dataidxs_t *sample = subsample(train_len, percentage); 
 		if (tree_index == 0) {
@@ -681,10 +666,10 @@ int main(int argc, char **argv)
     					&data[n_train_entries],			// test set
     					n_train_entries,				// n_train_entries
     					count - n_train_entries,		// n_test_entries
-    					10, 							// max depth
-    					10,								// min size
+    					20, 							// max depth
+    					2,								// min size
     					1.0,							// ratio
-    					300,								// n_trees
+    					1,								// n_trees
     					NUM_FEATURES);					// n_features (no. cols in dataset - 1)
 
 
