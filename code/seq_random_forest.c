@@ -618,23 +618,18 @@ int main(int argc, char **argv)
 {
 	extern char *optarg; 
 
-	int num_threads = 1; 
 	int file_size = 0; 
 
 	int opt;
 
 	while ((opt = getopt(argc, argv, "t:f:")) != -1) {
 		switch (opt) {
-			case 't': 
-				num_threads = atoi(optarg);  
-				break;
-
 			case 'f': 
 				file_size = atoi(optarg); 
 				break;  
 
 			default: 
-				fprintf(stderr, "Error- Invalid opt: %s\n", opt); 
+				fprintf(stderr, "Error- Invalid opt: %d\n", opt); 
 				exit(1); 
 		}
 	}

@@ -620,7 +620,7 @@ int main(int argc, char **argv)
 				break;  
 
 			default: 
-				fprintf(stderr, "Error- Invalid opt: %s\n", opt); 
+				fprintf(stderr, "Error- Invalid opt: %d\n", opt); 
 				exit(1); 
 		}
 	}
