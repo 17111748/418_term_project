@@ -294,10 +294,11 @@ node_t *create_leaf(float **train_set, dataidxs_t *dataset, int node_depth, int 
 
 int weight(node_t *node) {
     return node->group->left_idxs->n_entries + node->group->right_idxs->n_entries;
+}
 
 // A utility function to swap two elements 
 void swap(node_t** a, node_t** b) 
-{ 
+{
     node_t *temp = *a; 
     *a = *b;
     *b = temp;
@@ -307,8 +308,8 @@ int partition(node_t *arr[], int low, int high)
 {
     int pivot = weight(arr[high]);    // pivot 
     int i = (low - 1);  // Index of smaller element 
-  
-    for (int j = low; j <= high- 1; j++) 
+  	int j;
+    for (j = low; j <= high- 1; j++) 
     {
         if (weight(arr[j]) < pivot) 
         { 
@@ -335,82 +336,199 @@ void quickSort(node_t *arr[], int low, int high)
 }
 
 void split(node_t *node, int max_depth, int min_size, int n_features, float **train_set) {
-	int i;
-	node_t *cur_node;
-	group_t *group;
-	dataidxs_t *left; 
-	dataidxs_t *right;
+	int i, j, min_thread_idx, min_weight;
 	int max_capacity = 10000;
-	node_t *temp_node;
 	node_t **temp;
 	node_t **cur_level = malloc(sizeof(node_t*) * max_capacity);
 	node_t **next_level = malloc(sizeof(node_t*) * max_capacity);
 	int cur_level_count = 0;
 	int next_level_count = 0;
+	int cur_weights[omp_get_max_threads()];
+	int cur_counts[omp_get_max_threads()];
+	int *cur_idxs[omp_get_max_threads()];
+
+	for (i = 0; i < omp_get_max_threads(); i++) {
+		cur_idxs[i] = malloc(1000 * sizeof(int));
+	}
 
 	cur_level[cur_level_count] = node;
 	cur_level_count++;
 
 	while (cur_level_count > 0) {
-		printf("CUR_LEVEL_COUNT: %d\n", cur_level_count);
-		for (i = 0; i < cur_level_count; i++) {
-			cur_node = cur_level[i];
-			group = cur_node->group; 
-			left = group->left_idxs; 
-			right = group->right_idxs;
-			printf("	NODE_TOTAL_N_ENTRIES: %d\n", left->n_entries + right->n_entries);
-			if (left->n_entries == 0 || right->n_entries == 0) {
-				if (left->n_entries == 0) {
-					temp_node = create_leaf(train_set, right, cur_node->depth, n_features);
+		// printf("\n\n\nCUR_LEVEL_COUNT: %d\n", cur_level_count);
+		// int bla;
+		// printf("NODES: [");
+		// for (bla = 0; bla < cur_level_count; bla++) {
+		// 	printf("%d, ", weight(cur_level[bla]));
+		// }
+		// printf("]\n\n");
+
+		if (cur_level_count < omp_get_max_threads() * 3) { //run sequential
+			// printf("\nSTART OF SEQUENTIAL\n");
+			node_t *cur_node;
+			group_t *group;
+			dataidxs_t *left; 
+			dataidxs_t *right;
+			node_t *temp_node;
+			for (i = 0; i < cur_level_count; i++) {
+				cur_node = cur_level[i];
+				// printf("%d, ", weight(cur_node));
+				group = cur_node->group; 
+				left = group->left_idxs; 
+				right = group->right_idxs;
+				// printf("	NODE_TOTAL_N_ENTRIES: %d\n", left->n_entries + right->n_entries);
+				if (left->n_entries == 0 || right->n_entries == 0) {
+					if (left->n_entries == 0) {
+						temp_node = create_leaf(train_set, right, cur_node->depth, n_features);
+					}
+					else {
+						temp_node = create_leaf(train_set, left, cur_node->depth, n_features);
+					}
+					cur_node->leaf = true;
+					cur_node->result = temp_node->result;
+					free_tree_groups(cur_node);
+					free_tree_groups(temp_node);
+					free(temp_node);
+					continue;
+				}
+
+				if (cur_node->depth >= max_depth - 1) {
+					cur_node->left = create_leaf(train_set, left, cur_node->depth + 1, n_features);
+					cur_node->right = create_leaf(train_set, right, cur_node->depth + 1, n_features);
+					continue;
+				}
+
+				if (left->n_entries <= min_size) {
+					cur_node->left = create_leaf(train_set, left, cur_node->depth + 1, n_features);
 				}
 				else {
-					temp_node = create_leaf(train_set, left, cur_node->depth, n_features);
+					cur_node->left = get_split(train_set, left, n_features, cur_node->depth + 1);
+					next_level[next_level_count] = cur_node->left;
+					next_level_count++;
+					if (next_level_count >= max_capacity) printf("\n\nERROR IN SPLIT: MAX CAPACITY REACHED\n\n");
 				}
-				cur_node->leaf = true;
-				cur_node->result = temp_node->result;
-				free_tree_groups(cur_node);
-				free_tree_groups(temp_node);
-				free(temp_node);
-				continue;
+				if (right->n_entries <= min_size) {
+					cur_node->right = create_leaf(train_set, right, cur_node->depth + 1, n_features);
+				}
+				else {
+					cur_node->right = get_split(train_set, right, n_features, cur_node->depth + 1);
+					next_level[next_level_count] = cur_node->right;
+					next_level_count++;
+					if (next_level_count >= max_capacity) printf("\n\nERROR IN SPLIT: MAX CAPACITY REACHED\n\n");
+				}
+			}
+			// printf("\nEND OF SEQUENTIAL\n");
+
+		}
+		else { //run in parallel
+			// printf("\n\n\nSTART OF PARALLEL~~~~\n");
+			quickSort(cur_level, 0, cur_level_count - 1);
+
+			memset(cur_weights, 0, omp_get_max_threads() * sizeof(int));
+			memset(cur_counts, 0, omp_get_max_threads() * sizeof(int));
+
+			for (i = cur_level_count - 1; i > -1; i--) {
+				min_weight = INT_MAX;
+				for (j = 0; j < omp_get_max_threads(); j++) {
+					if (cur_weights[j] < min_weight) {
+						min_weight = cur_weights[j];
+						min_thread_idx = j;
+					}
+				}
+
+				cur_idxs[min_thread_idx][cur_counts[min_thread_idx]] = i;
+				cur_counts[min_thread_idx]++;
+				if (cur_counts[min_thread_idx] >= 1000) {
+					fprintf(stderr, "ERROR in split(): did not allocate enough\n"); 
+					exit(1);
+				}
+				cur_weights[min_thread_idx] += weight(cur_level[i]);
 			}
 
-			if (cur_node->depth >= max_depth - 1) {
-				cur_node->left = create_leaf(train_set, left, cur_node->depth + 1, n_features);
-				cur_node->right = create_leaf(train_set, right, cur_node->depth + 1, n_features);
-				continue;
-			}
+			#pragma omp parallel
+			{
 
-			if (left->n_entries <= min_size) {
-				cur_node->left = create_leaf(train_set, left, cur_node->depth + 1, n_features);
+				int t_count;
+				int tid = omp_get_thread_num();
+				// printf("HEREEEEEEEEEE TID = %d\n", tid);
+
+				node_t *cur_node;
+				group_t *group;
+				dataidxs_t *left; 
+				dataidxs_t *right;
+				node_t *temp_node;
+				for (t_count = 0; t_count < cur_counts[tid]; t_count++) {
+					// printf("HEREEEEEEEEEE %d\n", t_count);
+
+					cur_node = cur_level[cur_idxs[tid][t_count]];
+					// printf("%d, ", weight(cur_node));
+					group = cur_node->group; 
+					left = group->left_idxs; 
+					right = group->right_idxs;
+					// printf("	NODE_TOTAL_N_ENTRIES: %d\n", left->n_entries + right->n_entries);
+					if (left->n_entries == 0 || right->n_entries == 0) {
+						if (left->n_entries == 0) {
+							temp_node = create_leaf(train_set, right, cur_node->depth, n_features);
+						}
+						else {
+							temp_node = create_leaf(train_set, left, cur_node->depth, n_features);
+						}
+						cur_node->leaf = true;
+						cur_node->result = temp_node->result;
+						free_tree_groups(cur_node);
+						free_tree_groups(temp_node);
+						free(temp_node);
+						continue;
+					}
+
+					if (cur_node->depth >= max_depth - 1) {
+						cur_node->left = create_leaf(train_set, left, cur_node->depth + 1, n_features);
+						cur_node->right = create_leaf(train_set, right, cur_node->depth + 1, n_features);
+						continue;
+					}
+
+					if (left->n_entries <= min_size) {
+						cur_node->left = create_leaf(train_set, left, cur_node->depth + 1, n_features);
+					}
+					else {
+						cur_node->left = get_split(train_set, left, n_features, cur_node->depth + 1);
+						#pragma omp critical (next)
+						{
+							next_level[next_level_count] = cur_node->left;
+							next_level_count++;
+							if (next_level_count >= max_capacity) printf("\n\nERROR IN SPLIT: MAX CAPACITY REACHED\n\n");
+						}
+					}
+					if (right->n_entries <= min_size) {
+						cur_node->right = create_leaf(train_set, right, cur_node->depth + 1, n_features);
+					}
+					else {
+						cur_node->right = get_split(train_set, right, n_features, cur_node->depth + 1);
+						#pragma omp critical (next)
+						{
+							next_level[next_level_count] = cur_node->right;
+							next_level_count++;
+							if (next_level_count >= max_capacity) printf("\n\nERROR IN SPLIT: MAX CAPACITY REACHED\n\n");
+						}
+					}
+				}
 			}
-			else {
-				cur_node->left = get_split(train_set, left, n_features, cur_node->depth + 1);
-				next_level[next_level_count] = cur_node->left;
-				next_level_count++;
-				if (next_level_count >= max_capacity) printf("\n\nERROR IN SPLIT: MAX CAPACITY REACHED\n\n");
-			}
-			if (right->n_entries <= min_size) {
-				cur_node->right = create_leaf(train_set, right, cur_node->depth + 1, n_features);
-			}
-			else {
-				cur_node->right = get_split(train_set, right, n_features, cur_node->depth + 1);
-				next_level[next_level_count] = cur_node->right;
-				next_level_count++;
-				if (next_level_count >= max_capacity) printf("\n\nERROR IN SPLIT: MAX CAPACITY REACHED\n\n");
-			}
+			// printf("\nEND OF PARALLEL~~~~\n");
 		}
 
-		printf("BEFORE SORT: [");
-		for (i = 0; i < next_level_count; i++) {
-			printf("%d, ", next_level[i]->group->left_idxs->n_entries + next_level[i]->group->right_idxs->n_entries);
-		printf("]\n");
+		// printf("NEXT_LEVEL_COUNT: %d\n", next_level_count);
+		// printf("BEFORE SORT: [");
+		// for (i = 0; i < next_level_count; i++) {
+		// 	printf("%d, ", next_level[i]->group->left_idxs->n_entries + next_level[i]->group->right_idxs->n_entries);
+		// }
+		// printf("]\n");
 
-		quickSort(next_level, 0, next_level_count - 1);
 
-		printf("AFTER SORT: [");
-		for (i = 0; i < next_level_count; i++) {
-			printf("%d, ", next_level[i]->group->left_idxs->n_entries + next_level[i]->group->right_idxs->n_entries);
-		printf("]\n\n\n");
+		// printf("AFTER SORT: [");
+		// for (i = 0; i < next_level_count; i++) {
+		// 	printf("%d, ", next_level[i]->group->left_idxs->n_entries + next_level[i]->group->right_idxs->n_entries);
+		// }
+		// printf("]\n\n\n");
 
 		temp = cur_level;
 		cur_level_count = next_level_count;
@@ -421,6 +539,9 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 
 	free(cur_level);
 	free(next_level);
+	for (i = 0; i < omp_get_max_threads(); i++) {
+		free(cur_idxs[i]);
+	}
 }
 
 
@@ -668,5 +789,5 @@ int main(int argc, char **argv)
     }
     free(data);
 
-    return 0; 
+    return 0;
 }
