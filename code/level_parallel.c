@@ -774,7 +774,7 @@ int main(int argc, char **argv)
     					n_train_entries,				// n_train_entries
     					count - n_train_entries,		// n_test_entries
     					30, 							// max depth
-    					10,								// min size
+    					5,								// min size
     					1.0,							// ratio
     					1,								// n_trees
     					NUM_FEATURES);					// n_features (no. cols in dataset - 1)
