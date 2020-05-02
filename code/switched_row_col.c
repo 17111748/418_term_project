@@ -17,10 +17,14 @@
 int NUM_FEATURES = 30;
 // int NUM_FEATURES = 14; 
 
+int STACK_CAPACITY = 10000; 
+int QUEUE_CAPACITY = 10000; 
+
 typedef struct dataidxs {
 	int *data_idxs;
 	int n_entries;
 } dataidxs_t; 
+
 
 typedef struct group {
 	dataidxs_t *left_idxs; 
@@ -42,10 +46,81 @@ typedef struct tree {
 	node_t *root_node; 
 } tree_t; 
 
-bool float_equal(float a, float b) {
+typedef struct stack {
+	int end;  
+	int capacity; 
+	node_t **nodeList; 
+} stack_t; 
+
+typedef struct queue {
+	int start; 
+	int end; 
+	int capacity; 
+	node_t **nodeList; 
+} queue_t; 
+
+bool float_equal(float a, float b)
+{
 	float epsilon = 0.00001;
  	return fabs(a - b) < epsilon;
 }
+
+// stack_t *create_stack() {
+// 	stack_t *stack = malloc(sizeof(stack_t)); 
+// 	stack->end = 0; 
+// 	stack->capacity = STACK_CAPACITY; 
+// 	stack->nodeList = malloc(sizeof(node_t*) * stack->capacity); 
+// 	return stack; 
+// }
+
+// bool stack_isEmpty(stack_t *stack) {
+// 	return stack->end == 0; 
+// }
+
+// void stack_push(stack_t *stack, node_t *node) {
+// 	if (stack->end == stack->capacity) {
+// 		printf("Failed to Push onto Stack \n"); 
+// 		return; 
+// 	}
+// 	stack->nodeList[stack->end] = node; 
+// 	stack->end = stack->end + 1; 
+// }
+
+// node_t *stack_pop(stack_t *stack) {
+// 	if (stack->end == 0) return NULL; 
+// 	stack->end = stack->end - 1; 
+// 	return stack->nodeList[stack->end + 1]; 
+// }
+
+// queue_t *create_queue() {
+// 	queue_t *queue = malloc(sizeof(queue_t)); 
+// 	queue->start = 0; 
+// 	queue->end = 0; 
+// 	queue->capacity = QUEUE_CAPACITY; 
+// 	queue->nodeList = malloc(sizeof(node_t*) * queue->capacity); 
+// 	return queue; 
+// }
+
+// bool queue_isEmpty(queue_t *queue) {
+// 	return (queue->start == queue->end) && !(((queue->end + 1) % queue->capacity) == queue->start); 
+// }
+
+// void queue_push(queue_t *queue, node_t *node) {
+// 	if(((queue->end + 1) % queue->capacity) == queue->start) {
+// 		printf("Failed to Push onto Queue \n"); 
+// 		return; 
+// 	}
+// 	queue->nodeList[queue->end] = node; 
+// 	queue->end = (queue->end + 1) % queue->capacity; 
+// }
+
+// node_t *queue_pop(queue_t *queue) {
+// 	if (queue->end == queue->start) return NULL; 
+// 	node_t *node = queue->nodeList[queue->start]; 
+// 	queue->start = (queue->start + 1) % queue->capacity; 
+// 	return node; 
+// }
+
 
 node_t* create_node(int feature, float feature_value, group_t *group, int depth) {
 	node_t *node = malloc(sizeof(node_t)); 
@@ -179,6 +254,7 @@ void free_tree(node_t *node) {
 	free(node);
 }
 
+// Tested 
 group_t *test_split(int index, float value, float **train_set, dataidxs_t *dataset) {
 	dataidxs_t *left = create_dataidxs(dataset->n_entries); 
 	dataidxs_t *right = create_dataidxs(dataset->n_entries); 
@@ -187,6 +263,18 @@ group_t *test_split(int index, float value, float **train_set, dataidxs_t *datas
 	int right_count = 0; 
 
 	int i; 
+	// for (i = 0; i < dataset->n_entries; i++) {
+	// 	int row = dataset->data_idxs[i]; 
+	// 	if (train_set[row][index] < value) {
+	// 		left->data_idxs[left_count] = row; 
+	// 		left_count++; 
+	// 	}
+	// 	else {
+	// 		right->data_idxs[right_count] = row; 
+	// 		right_count++; 
+	// 	}
+	// } 
+
 	for (i = 0; i < dataset->n_entries; i++) {
 		int col = dataset->data_idxs[i]; 
 		if (train_set[index][col] < value) {
@@ -209,99 +297,189 @@ group_t *test_split(int index, float value, float **train_set, dataidxs_t *datas
 	return group; 
 }
 
-node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int node_depth) {
+void print_node_t(node_t *n) {
+	printf("\n~~~~~~~~ Print Node_t ~~~~~~~~~~~~~\n"); 
+	// node_t *left = n->left; 
+	// node_t *right = n->right;
+	printf("Depth: %d\n\n", n->depth); 
 	
-	int i; 
+	printf("Feature Index: %d\n", n->feature);
+	printf("Feature Value: %f\n\n", n->feature_value); 
+	
+	printf("Result: %d\n", n->result); 
+	printf("Leaf: %d\n", (n->leaf == true)); 
+	
+	
+	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+}
+
+node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int node_depth) {
+	int best_feature_index = -1; 
+	float best_feature_value = -1; 
+	float best_score = (float)INT_MAX; 
+	group_t *best_group = NULL;
+
+	int index; 
 	int count; 
-	int index_i; 
+	int i, indexD;
+	float gini;  
 
 	// Randomly Select N features from featureList 
 	int featureList[n_features]; 
 	featureList[0] = rand() % n_features; 
 	for (i = 1; i < n_features; i++) {
 		count = 0; 
-		index_i = rand() % n_features; 
+		index = rand() % n_features; 
 		while (count < i) {
-			if(featureList[count] == index_i) {
-				index_i = rand() % n_features; 
+			if(featureList[count] == index) {
+				index = rand() % n_features; 
 				count = 0; 
 			}
 			else {
 				count++; 
 			}
 		}
-		featureList[i] = index_i; 
+		featureList[i] = index; 
 	}
+
+	// printf("FeatureList: \n"); 
 	
-	for (i = 0; i < n_features; i++) {
+	for(i = 0; i < n_features; i++){
 		featureList[i] = i;
 	}
-
-
-	int num_threads = omp_get_max_threads(); 
-
-	// int padding_int = sizeof(float) * 
-	// int padding_group = sizeof(group_t*)
-	float best_scores[num_threads]; 
-	int best_feature_indexs[num_threads]; 
-	float best_feature_values[num_threads]; 
-	group_t *best_groups[num_threads];  
-
-
-	// Selecting the best split with the lowest gini index
-	int index; 
-	int indexD;
-	#pragma omp parallel 
-	{
-		int tid = omp_get_thread_num(); 
-		best_feature_indexs[tid] = -1; 
-		best_feature_values[tid] = -1; 
-		best_scores[tid] = (float)INT_MAX; 
-		best_groups[tid] = NULL;
-		#pragma omp for schedule(static) collapse(2) nowait
-		for (index = 0; index < n_features; index++) { 
-			for (indexD = 0; indexD < dataset->n_entries; indexD++) {
-				int feature_index = featureList[index]; 
-				int data_index = (dataset->data_idxs)[indexD]; 
-				group_t *group = test_split(feature_index, train_set[feature_index][data_index], train_set, dataset); 
-				float gini = gini_index(train_set, group, n_features); 
-				if (gini < best_scores[tid]) {
-					best_feature_indexs[tid] = feature_index; 
-					best_feature_values[tid] = train_set[feature_index][data_index]; 
-					best_scores[tid] = gini; 
-					best_groups[tid] = group; 
-				}
-				else {
-					free_group(group);
-				}
+	
+	// Selecting the best split with the lowest gini index 
+	for (index = 0; index < n_features; index++) {
+		for (indexD = 0; indexD < dataset->n_entries; indexD++) {
+			int feature_index = featureList[index]; 
+			int data_index = (dataset->data_idxs)[indexD]; 
+			group_t *group = test_split(feature_index, train_set[feature_index][data_index], train_set, dataset); 
+			// group_t *group = test_split(feature_index, train_set[data_index][feature_index], train_set, dataset); 
+			gini = gini_index(train_set, group, n_features); 
+			if (gini < best_score) {
+				best_feature_index = feature_index; 
+				best_feature_value = train_set[feature_index][data_index]; 
+				best_score = gini; 
+				best_group = group; 
+			}
+			else {
+				free_group(group);
 			}
 		}
 	}
-
-	float best_score = (float)INT_MAX; 
-	int best_feature_index = -1; 
-	float best_feature_value = -1; 
-	group_t *best_group = NULL; 
-
-	for (i = 0; i < num_threads; i++) {
-		if (best_scores[i] < best_score) {
-			best_score = best_scores[i]; 
-			best_feature_index = best_feature_indexs[i]; 
-			best_feature_value = best_feature_values[i]; 
-			best_group = best_groups[i]; 
-		}
-	}
-	
 	node_t *node = create_node(best_feature_index, best_feature_value, best_group, node_depth); 
 
 	return node;
 }
+
+// node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int node_depth) {
+	
+// 	int i; 
+// 	int count; 
+// 	int index_i; 
+
+// 	// Randomly Select N features from featureList 
+// 	int featureList[n_features]; 
+// 	featureList[0] = rand() % n_features; 
+// 	for (i = 1; i < n_features; i++) {
+// 		count = 0; 
+// 		index_i = rand() % n_features; 
+// 		while (count < i) {
+// 			if(featureList[count] == index_i) {
+// 				index_i = rand() % n_features; 
+// 				count = 0; 
+// 			}
+// 			else {
+// 				count++; 
+// 			}
+// 		}
+// 		featureList[i] = index_i; 
+// 	}
+	
+// 	for (i = 0; i < n_features; i++) {
+// 		featureList[i] = i;
+// 	}
+
+
+
+// 	int num_threads = omp_get_max_threads(); 
+
+// 	// int padding_int = sizeof(float) * 
+// 	// int padding_group = sizeof(group_t*)
+// 	float best_scores[num_threads]; 
+// 	int best_feature_indexs[num_threads]; 
+// 	float best_feature_values[num_threads]; 
+// 	group_t *best_groups[num_threads];  
+
+
+// 	// Selecting the best split with the lowest gini index
+// 	int index; 
+// 	int indexD;
+// 	#pragma omp parallel 
+// 	{
+// 		int tid = omp_get_thread_num(); 
+// 		best_feature_indexs[tid] = -1; 
+// 		best_feature_values[tid] = -1; 
+// 		best_scores[tid] = (float)INT_MAX; 
+// 		best_groups[tid] = NULL;
+// 		#pragma omp for schedule(static) collapse(2) nowait
+// 		for (index = 0; index < n_features; index++) { 
+// 			for (indexD = 0; indexD < dataset->n_entries; indexD++) {
+// 				int feature_index = featureList[index]; 
+// 				int data_index = (dataset->data_idxs)[indexD]; 
+// 				group_t *group = test_split(feature_index, train_set[data_index][feature_index], train_set, dataset); 
+// 				float gini = gini_index(train_set, group, n_features); 
+// 				if (gini < best_scores[tid]) {
+// 					best_feature_indexs[tid] = feature_index; 
+// 					best_feature_values[tid] = train_set[data_index][feature_index]; 
+// 					best_scores[tid] = gini; 
+// 					best_groups[tid] = group; 
+// 				}
+// 				else {
+// 					free_group(group);
+// 				}
+// 			}
+// 		}
+// 	}
+
+// 	float best_score = (float)INT_MAX; 
+// 	int best_feature_index = -1; 
+// 	float best_feature_value = -1; 
+// 	group_t *best_group = NULL; 
+
+// 	for (i = 0; i < num_threads; i++) {
+// 		if (best_scores[i] < best_score) {
+// 			best_score = best_scores[i]; 
+// 			best_feature_index = best_feature_indexs[i]; 
+// 			best_feature_value = best_feature_values[i]; 
+// 			best_group = best_groups[i]; 
+// 		}
+// 	}
+	
+// 	node_t *node = create_node(best_feature_index, best_feature_value, best_group, node_depth); 
+
+// 	// print_node_t(node); 
+
+// 	return node;
+// }
 
 
 node_t *create_leaf(float **train_set, dataidxs_t *dataset, int node_depth, int n_features) {
 	int yes_count = 0; 
 	int no_count = 0; 
 	int i; 
+	// for (i = 0; i < dataset->n_entries; i++) {
+	// 	int index = dataset->data_idxs[i]; 
+	// 	if (float_equal(train_set[index][n_features], 1.0)) {
+	// 		yes_count++; 
+	// 	}
+	// 	else if (float_equal(train_set[index][n_features], 0.0)) {
+	// 		no_count++; 
+	// 	}
+	// 	else {
+	// 		printf("Create Leaf: Should not get here \n"); 
+	// 	}
+	// }
 	for (i = 0; i < dataset->n_entries; i++) {
 		int index = dataset->data_idxs[i]; 
 		if (float_equal(train_set[n_features][index], 1.0)) {
@@ -324,6 +502,7 @@ node_t *create_leaf(float **train_set, dataidxs_t *dataset, int node_depth, int 
 
 
 void split(node_t *node, int max_depth, int min_size, int n_features, float **train_set) {
+	double startSeq, endSeq; 
 	int i;
 	node_t *cur_node;
 	group_t *group;
@@ -342,6 +521,8 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 
 	while (cur_level_count > 0) {
 		// printf("CUR_LEVEL_COUNT: %d\n", cur_level_count);
+		startSeq = currentSeconds(); 
+
 		for (i = 0; i < cur_level_count; i++) {
 			cur_node = cur_level[i];
 			group = cur_node->group; 
@@ -389,6 +570,11 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 			}
 		}
 
+		// endSeq = currentSeconds(); 
+		// printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+		// printf("seq (split) %f\n", endSeq - startSeq); 
+		// printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n");
+
 		temp = cur_level;
 		cur_level_count = next_level_count;
 		cur_level = next_level;
@@ -417,6 +603,7 @@ int predict(tree_t *tree, float **test_set, int row) {
 	int feature; 
 	float feature_value; 
 	if (cur_node == NULL) return -1; 
+	// while ((cur_node->left == NULL) && (cur_node->right == NULL)) {
 	while(cur_node->leaf != true) {
 		feature = cur_node->feature; 
 		feature_value = cur_node->feature_value; 
@@ -495,6 +682,8 @@ float random_forest(float **train_set, float **test_set, int train_len, int test
 
 		free_tree_groups(root_node);
 	}
+
+	// exit(1); 
 
 	double endSeconds = currentSeconds(); 
 	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
@@ -580,6 +769,34 @@ int main(int argc, char **argv)
 	}
 
 	omp_set_num_threads(num_threads);
+	// omp_set_num_threads(8);
+
+
+	// Testing omp_get_max and omp_get_num
+
+	// printf("Get Max Num Threads: %d\n", omp_get_max_threads());
+	// printf("Get Num Threads: %d\n", omp_get_num_threads());
+
+	// #pragma omp parallel
+	// {
+	// 	printf("Inside Get Max Num Threads: %d\n", omp_get_max_threads());
+	// 	printf("Inside Get Num Threads: %d\n", omp_get_num_threads());
+
+	// 	#pragma omp barrier 
+
+	// 	omp_set_num_threads(4); 
+
+	// 	int i; 
+
+	// 	printf("\n\n"); 
+	// 	#pragma omp for 
+	// 	for(i = 0; i < 8; i++) {
+	// 		printf("Second Get Max Num Threads: %d\n", omp_get_max_threads());
+	// 		printf("Second Get Num Threads: %d\n", omp_get_num_threads());
+	// 	}
+
+	// }
+
 
     FILE* stream;
 	switch (file_size) {
@@ -634,19 +851,81 @@ int main(int argc, char **argv)
     int num_row = count; 
     int num_col = NUM_FEATURES + 1; 
 
+
+
+    float **temp_data = malloc(sizeof(float *) * 48); 
+
     float** new_train_data = malloc(sizeof(float *) * 48); 
+    float** new_test_data = malloc(sizeof(float *) * 48); 
     int row, col; 
     for (row = 0; row < num_row; row++) {
     	for (col = 0; col < num_col; col++) {
     		if(row == 0) {
     			new_train_data[col] = malloc(sizeof(float) * 100000);
+    			new_test_data[col] = malloc(sizeof(float) * 100000); 
     		}
     		if (row < n_train_entries) {
     			new_train_data[col][row] = data[row][col]; 
     		}
+    		else {
+    			new_test_data[col][row - n_train_entries] = data[row][col]; 
+    		}
     	}
     }
 
+ //    int row, col; 
+ //    for (row = 0; row < num_row; row++) {
+ //    	temp_data[row] = malloc(sizeof(float) * 100000); 
+ //    	for (col = 0; col < num_col; col++) {
+ //    		temp_data[row][col] = row * num_col + col; 
+ //    		if (col == (num_col - 1)) {
+ //    			temp_data[row][col] = row % 2; 
+ //    		}
+ //    		printf("%f, ", temp_data[row][col]); 
+ //    	}
+ //    	printf("\n"); 
+ //    }
+
+ //    count = 5; 
+ //    n_train_entries = 4; 
+
+ //    float** new_data = malloc(sizeof(float *) * 48); 
+ //    float** new_test_data = malloc(sizeof(float *) * 48); 
+ //    int y, z; 
+ //    for (y= 0; y < num_row; y++) {
+ //    	for (z = 0; z < num_col; z++) {
+ //    		if(y == 0) {
+ //    			new_data[z] = malloc(sizeof(float) * 100000);
+ //    			new_test_data[z] = malloc(sizeof(float) * 100000); 
+ //    		}
+ //    		if (y < n_train_entries) {
+ //    			new_data[z][y] = temp_data[y][z]; 
+ //    		}
+ //    		else {
+ //    			new_test_data[z][y - n_train_entries] = temp_data[y][z]; 
+ //    		}
+ //    	}
+ //    }
+
+ //    printf("\nTrain data\n"); 
+
+ //    for (y= 0; y < num_col; y++) {
+ //    	for (z = 0; z < n_train_entries; z++) {
+ //    		printf("%f, ", new_data[y][z]); 
+ //    	}
+ //    	printf("\n"); 
+ //    }
+
+ //    printf("\nTest_data\n"); 
+
+ //    for (y= 0; y < num_col; y++) {
+ //    	for (z = 0; z < (count-n_train_entries); z++) {
+ //    		printf("%f, ", new_test_data[y][z]); 
+ //    	}
+ //    	printf("\n"); 
+ //    }
+	 
+	// exit(1); 
 
     double endSeconds = currentSeconds(); 
 	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
@@ -664,9 +943,22 @@ int main(int argc, char **argv)
     					1,								// n_trees
     					NUM_FEATURES);					// n_features (no. cols in dataset - 1)
 
+    // float accuracy = random_forest(
+    // 					&data[0],						// train set
+    // 					&data[n_train_entries],			// test set
+    // 					n_train_entries,				// n_train_entries
+    // 					count - n_train_entries,		// n_test_entries
+    // 					20, 							// max depth
+    // 					2,								// min size
+    // 					1.0,							// ratio
+    // 					1,								// n_trees
+    // 					NUM_FEATURES);					// n_features (no. cols in dataset - 1)
+
+
     printf("accuracy: %f\n", accuracy);
 
     int i;
+
     for (i = 0; i < count; i++) {
     	free(data[i]);
     }

@@ -144,7 +144,7 @@ dataidxs_t* create_dataidxs(int n_entries) {
 }
 
 
-// Test
+// Tested 
 /* Create a random subsample from the dataset with replacement */
 dataidxs_t* subsample(int n_entries, float percentage) {
 	int i;
@@ -158,7 +158,7 @@ dataidxs_t* subsample(int n_entries, float percentage) {
 		// int index = rand() % n_entries; 
 		sample->data_idxs[i] = i; 
 	}
-	return sample;    
+	return sample; 
 }
 
 
@@ -174,6 +174,7 @@ float gini_index(float **train_set, group_t *group, int n_features) {
 	int k; 
 	float size, score, p0, p1; 
 	
+
 	// Left Side 
 	size = (float)(left_idxs->n_entries); 
 	if (size != 0) {
@@ -183,7 +184,7 @@ float gini_index(float **train_set, group_t *group, int n_features) {
 		for (k = 0; k < left_idxs->n_entries; k++) {
 			int index = left_idxs->data_idxs[k]; 
 			// get malign or not count 
-			if (float_equal(train_set[n_features][index], 0.0)) {
+			if (float_equal(train_set[index][n_features], 0.0)) {
 				p0 += 1; 
 			}
 			else {
@@ -194,6 +195,7 @@ float gini_index(float **train_set, group_t *group, int n_features) {
 		score += p1/size * p1/size; 
 		gini += (1.0 - score) * (size / (float)n_instances); 
 	}
+
 	// Right Side 
 	size = (float)(right_idxs->n_entries); 
 	if (size != 0) {
@@ -202,7 +204,7 @@ float gini_index(float **train_set, group_t *group, int n_features) {
 		p1 = 0.0; 
 		for (k = 0; k < right_idxs->n_entries; k++) {
 			int index = right_idxs->data_idxs[k]; 
-			if (float_equal(train_set[n_features][index], 0.0)) {
+			if (float_equal(train_set[index][n_features], 0.0)) {
 				p0 += 1;
 			}
 			else {
@@ -263,26 +265,14 @@ group_t *test_split(int index, float value, float **train_set, dataidxs_t *datas
 	int right_count = 0; 
 
 	int i; 
-	// for (i = 0; i < dataset->n_entries; i++) {
-	// 	int row = dataset->data_idxs[i]; 
-	// 	if (train_set[row][index] < value) {
-	// 		left->data_idxs[left_count] = row; 
-	// 		left_count++; 
-	// 	}
-	// 	else {
-	// 		right->data_idxs[right_count] = row; 
-	// 		right_count++; 
-	// 	}
-	// } 
-
 	for (i = 0; i < dataset->n_entries; i++) {
-		int col = dataset->data_idxs[i]; 
-		if (train_set[index][col] < value) {
-			left->data_idxs[left_count] = col; 
+		int row = dataset->data_idxs[i]; 
+		if (train_set[row][index] < value) {
+			left->data_idxs[left_count] = row; 
 			left_count++; 
 		}
 		else {
-			right->data_idxs[right_count] = col; 
+			right->data_idxs[right_count] = row; 
 			right_count++; 
 		}
 	} 
@@ -313,179 +303,168 @@ void print_node_t(node_t *n) {
 	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
 }
 
-node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int node_depth) {
-	int best_feature_index = -1; 
-	float best_feature_value = -1; 
-	float best_score = (float)INT_MAX; 
-	group_t *best_group = NULL;
-
-	int index; 
-	int count; 
-	int i, indexD;
-	float gini;  
-
-	// Randomly Select N features from featureList 
-	int featureList[n_features]; 
-	featureList[0] = rand() % n_features; 
-	for (i = 1; i < n_features; i++) {
-		count = 0; 
-		index = rand() % n_features; 
-		while (count < i) {
-			if(featureList[count] == index) {
-				index = rand() % n_features; 
-				count = 0; 
-			}
-			else {
-				count++; 
-			}
-		}
-		featureList[i] = index; 
-	}
-
-	// printf("FeatureList: \n"); 
-	
-	for(i = 0; i < n_features; i++){
-		featureList[i] = i;
-	}
-	
-	// Selecting the best split with the lowest gini index 
-	for (index = 0; index < n_features; index++) {
-		for (indexD = 0; indexD < dataset->n_entries; indexD++) {
-			int feature_index = featureList[index]; 
-			int data_index = (dataset->data_idxs)[indexD]; 
-			group_t *group = test_split(feature_index, train_set[feature_index][data_index], train_set, dataset); 
-			// group_t *group = test_split(feature_index, train_set[data_index][feature_index], train_set, dataset); 
-			gini = gini_index(train_set, group, n_features); 
-			if (gini < best_score) {
-				best_feature_index = feature_index; 
-				best_feature_value = train_set[feature_index][data_index]; 
-				best_score = gini; 
-				best_group = group; 
-			}
-			else {
-				free_group(group);
-			}
-		}
-	}
-	node_t *node = create_node(best_feature_index, best_feature_value, best_group, node_depth); 
-
-	return node;
-}
-
 // node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int node_depth) {
-	
-// 	int i; 
+// 	int best_feature_index = -1; 
+// 	float best_feature_value = -1; 
+// 	float best_score = (float)INT_MAX; 
+// 	group_t *best_group = NULL;
+
+// 	int index; 
 // 	int count; 
-// 	int index_i; 
+// 	int i, indexD;
+// 	float gini;  
 
 // 	// Randomly Select N features from featureList 
 // 	int featureList[n_features]; 
 // 	featureList[0] = rand() % n_features; 
 // 	for (i = 1; i < n_features; i++) {
 // 		count = 0; 
-// 		index_i = rand() % n_features; 
+// 		index = rand() % n_features; 
 // 		while (count < i) {
-// 			if(featureList[count] == index_i) {
-// 				index_i = rand() % n_features; 
+// 			if(featureList[count] == index) {
+// 				index = rand() % n_features; 
 // 				count = 0; 
 // 			}
 // 			else {
 // 				count++; 
 // 			}
 // 		}
-// 		featureList[i] = index_i; 
+// 		featureList[i] = index; 
 // 	}
 	
-// 	for (i = 0; i < n_features; i++) {
-// 		featureList[i] = i;
-// 	}
-
-
-
-// 	int num_threads = omp_get_max_threads(); 
-
-// 	// int padding_int = sizeof(float) * 
-// 	// int padding_group = sizeof(group_t*)
-// 	float best_scores[num_threads]; 
-// 	int best_feature_indexs[num_threads]; 
-// 	float best_feature_values[num_threads]; 
-// 	group_t *best_groups[num_threads];  
-
+// 	// for (i = 0; i < n_features; i++) {
+// 	// 	featureList[i] = i;
+// 	// }
 
 // 	// Selecting the best split with the lowest gini index
-// 	int index; 
-// 	int indexD;
-// 	#pragma omp parallel 
-// 	{
-// 		int tid = omp_get_thread_num(); 
-// 		best_feature_indexs[tid] = -1; 
-// 		best_feature_values[tid] = -1; 
-// 		best_scores[tid] = (float)INT_MAX; 
-// 		best_groups[tid] = NULL;
-// 		#pragma omp for schedule(static) collapse(2) nowait
-// 		for (index = 0; index < n_features; index++) { 
-// 			for (indexD = 0; indexD < dataset->n_entries; indexD++) {
-// 				int feature_index = featureList[index]; 
-// 				int data_index = (dataset->data_idxs)[indexD]; 
-// 				group_t *group = test_split(feature_index, train_set[data_index][feature_index], train_set, dataset); 
-// 				float gini = gini_index(train_set, group, n_features); 
-// 				if (gini < best_scores[tid]) {
-// 					best_feature_indexs[tid] = feature_index; 
-// 					best_feature_values[tid] = train_set[data_index][feature_index]; 
-// 					best_scores[tid] = gini; 
-// 					best_groups[tid] = group; 
-// 				}
-// 				else {
-// 					free_group(group);
-// 				}
+
+// 	// #pragma omp parallel
+// 	for (index = 0; index < n_features; index++) {
+// 		for (indexD = 0; indexD < dataset->n_entries; indexD++) {
+// 			int feature_index = featureList[index]; 
+// 			int data_index = (dataset->data_idxs)[indexD]; 
+
+// 			group_t *group = test_split(feature_index, train_set[data_index][feature_index], train_set, dataset); 
+// 			gini = gini_index(train_set, group, n_features); 
+// 			if (gini < best_score) {
+// 				best_feature_index = feature_index; 
+// 				best_feature_value = train_set[data_index][feature_index]; 
+// 				best_score = gini; 
+// 				best_group = group; 
+// 			}
+// 			else {
+// 				free_group(group);
 // 			}
 // 		}
 // 	}
 
-// 	float best_score = (float)INT_MAX; 
-// 	int best_feature_index = -1; 
-// 	float best_feature_value = -1; 
-// 	group_t *best_group = NULL; 
+// 	node_t *node = create_node(best_feature_index, best_feature_value, best_group, node_depth);
 
-// 	for (i = 0; i < num_threads; i++) {
-// 		if (best_scores[i] < best_score) {
-// 			best_score = best_scores[i]; 
-// 			best_feature_index = best_feature_indexs[i]; 
-// 			best_feature_value = best_feature_values[i]; 
-// 			best_group = best_groups[i]; 
-// 		}
-// 	}
-	
-// 	node_t *node = create_node(best_feature_index, best_feature_value, best_group, node_depth); 
-
-// 	// print_node_t(node); 
+// 	// print_node_t(node);  
 
 // 	return node;
 // }
+
+node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int node_depth) {
+	
+	int i; 
+	int count; 
+	int index_i; 
+
+	// Randomly Select N features from featureList 
+	int featureList[n_features]; 
+	featureList[0] = rand() % n_features; 
+	for (i = 1; i < n_features; i++) {
+		count = 0; 
+		index_i = rand() % n_features; 
+		while (count < i) {
+			if(featureList[count] == index_i) {
+				index_i = rand() % n_features; 
+				count = 0; 
+			}
+			else {
+				count++; 
+			}
+		}
+		featureList[i] = index_i; 
+	}
+	
+	for (i = 0; i < n_features; i++) {
+		featureList[i] = i;
+	}
+
+
+
+	int num_threads = omp_get_max_threads(); 
+
+	float best_scores[num_threads]; 
+	int best_feature_indexs[num_threads]; 
+	float best_feature_values[num_threads]; 
+	group_t *best_groups[num_threads];  
+
+
+	// Selecting the best split with the lowest gini index
+	int index; 
+	int indexD;
+	#pragma omp parallel 
+	{
+		int tid = omp_get_thread_num(); 
+		best_feature_indexs[tid] = -1; 
+		best_feature_values[tid] = -1; 
+		best_scores[tid] = (float)INT_MAX; 
+		best_groups[tid] = NULL;
+		#pragma omp for schedule(static) collapse(2)
+		for (index = 0; index < n_features; index++) { 
+			for (indexD = 0; indexD < dataset->n_entries; indexD++) {
+				int feature_index = featureList[index]; 
+				int data_index = (dataset->data_idxs)[indexD]; 
+				group_t *group = test_split(feature_index, train_set[data_index][feature_index], train_set, dataset); 
+				float gini = gini_index(train_set, group, n_features); 
+				if (gini < best_scores[tid]) {
+					best_feature_indexs[tid] = feature_index; 
+					best_feature_values[tid] = train_set[data_index][feature_index]; 
+					best_scores[tid] = gini; 
+					best_groups[tid] = group; 
+				}
+				else {
+					free_group(group);
+				}
+			}
+		}
+	}
+
+	float best_score = (float)INT_MAX; 
+	int best_feature_index = -1; 
+	float best_feature_value = -1; 
+	group_t *best_group = NULL; 
+
+	for (i = 0; i < num_threads; i++) {
+		if (best_scores[i] < best_score) {
+			best_score = best_scores[i]; 
+			best_feature_index = best_feature_indexs[i]; 
+			best_feature_value = best_feature_values[i]; 
+			best_group = best_groups[i]; 
+		}
+	}
+	
+	node_t *node = create_node(best_feature_index, best_feature_value, best_group, node_depth); 
+
+	// print_node_t(node); 
+
+	return node;
+}
 
 
 node_t *create_leaf(float **train_set, dataidxs_t *dataset, int node_depth, int n_features) {
 	int yes_count = 0; 
 	int no_count = 0; 
 	int i; 
-	// for (i = 0; i < dataset->n_entries; i++) {
-	// 	int index = dataset->data_idxs[i]; 
-	// 	if (float_equal(train_set[index][n_features], 1.0)) {
-	// 		yes_count++; 
-	// 	}
-	// 	else if (float_equal(train_set[index][n_features], 0.0)) {
-	// 		no_count++; 
-	// 	}
-	// 	else {
-	// 		printf("Create Leaf: Should not get here \n"); 
-	// 	}
-	// }
 	for (i = 0; i < dataset->n_entries; i++) {
 		int index = dataset->data_idxs[i]; 
-		if (float_equal(train_set[n_features][index], 1.0)) {
+		if (float_equal(train_set[index][n_features], 1.0)) {
 			yes_count++; 
 		}
-		else if (float_equal(train_set[n_features][index], 0.0)) {
+		else if (float_equal(train_set[index][n_features], 0.0)) {
 			no_count++; 
 		}
 		else {
@@ -523,6 +502,12 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 		// printf("CUR_LEVEL_COUNT: %d\n", cur_level_count);
 		startSeq = currentSeconds(); 
 
+		// for(i = 0; i < cur_level_count; i++) {
+		// 	printf("i: %d ", i); 
+		// 	print_node_t(cur_level[i]); 
+
+		// }
+		// if (cur_level_count == 2) exit(1); 
 		for (i = 0; i < cur_level_count; i++) {
 			cur_node = cur_level[i];
 			group = cur_node->group; 
@@ -682,8 +667,6 @@ float random_forest(float **train_set, float **test_set, int train_len, int test
 
 		free_tree_groups(root_node);
 	}
-
-	exit(1); 
 
 	double endSeconds = currentSeconds(); 
 	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
@@ -848,94 +831,13 @@ int main(int argc, char **argv)
 
     int n_train_entries = (int)(0.8*(float)count);
 
-    printf("count: %d\n", count); 
-    int num_row = count; 
-    int num_col = NUM_FEATURES + 1; 
-
-    // num_row = 5; 
-    // num_col = 4; 
-
-    float **temp_data = malloc(sizeof(float *) * 48); 
-
-    float** new_train_data = malloc(sizeof(float *) * 48); 
-    float** new_test_data = malloc(sizeof(float *) * 48); 
-    int row, col; 
-    for (row = 0; row < num_row; row++) {
-    	for (col = 0; col < num_col; col++) {
-    		if(row == 0) {
-    			new_train_data[col] = malloc(sizeof(float) * 100000);
-    			new_test_data[col] = malloc(sizeof(float) * 100000); 
-    		}
-    		if (row < n_train_entries) {
-    			new_train_data[col][row] = data[row][col]; 
-    		}
-    		else {
-    			new_test_data[col][row - n_train_entries] = data[row][col]; 
-    		}
-    	}
-    }
-
- //    int row, col; 
- //    for (row = 0; row < num_row; row++) {
- //    	temp_data[row] = malloc(sizeof(float) * 100000); 
- //    	for (col = 0; col < num_col; col++) {
- //    		temp_data[row][col] = row * num_col + col; 
- //    		if (col == (num_col - 1)) {
- //    			temp_data[row][col] = row % 2; 
- //    		}
- //    		printf("%f, ", temp_data[row][col]); 
- //    	}
- //    	printf("\n"); 
- //    }
-
- //    count = 5; 
- //    n_train_entries = 4; 
-
- //    float** new_data = malloc(sizeof(float *) * 48); 
- //    float** new_test_data = malloc(sizeof(float *) * 48); 
- //    int y, z; 
- //    for (y= 0; y < num_row; y++) {
- //    	for (z = 0; z < num_col; z++) {
- //    		if(y == 0) {
- //    			new_data[z] = malloc(sizeof(float) * 100000);
- //    			new_test_data[z] = malloc(sizeof(float) * 100000); 
- //    		}
- //    		if (y < n_train_entries) {
- //    			new_data[z][y] = temp_data[y][z]; 
- //    		}
- //    		else {
- //    			new_test_data[z][y - n_train_entries] = temp_data[y][z]; 
- //    		}
- //    	}
- //    }
-
- //    printf("\nTrain data\n"); 
-
- //    for (y= 0; y < num_col; y++) {
- //    	for (z = 0; z < n_train_entries; z++) {
- //    		printf("%f, ", new_data[y][z]); 
- //    	}
- //    	printf("\n"); 
- //    }
-
- //    printf("\nTest_data\n"); 
-
- //    for (y= 0; y < num_col; y++) {
- //    	for (z = 0; z < (count-n_train_entries); z++) {
- //    		printf("%f, ", new_test_data[y][z]); 
- //    	}
- //    	printf("\n"); 
- //    }
-	 
-	// exit(1); 
-
     double endSeconds = currentSeconds(); 
 	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
 	printf("Time to read and initialize data: %f\n", endSeconds - startSeconds); 
 	printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n");
 
-	float accuracy = random_forest(
-    					&new_train_data[0],				// train set
+    float accuracy = random_forest(
+    					&data[0],						// train set
     					&data[n_train_entries],			// test set
     					n_train_entries,				// n_train_entries
     					count - n_train_entries,		// n_test_entries
@@ -944,17 +846,6 @@ int main(int argc, char **argv)
     					1.0,							// ratio
     					1,								// n_trees
     					NUM_FEATURES);					// n_features (no. cols in dataset - 1)
-
-    // float accuracy = random_forest(
-    // 					&data[0],						// train set
-    // 					&data[n_train_entries],			// test set
-    // 					n_train_entries,				// n_train_entries
-    // 					count - n_train_entries,		// n_test_entries
-    // 					20, 							// max depth
-    // 					2,								// min size
-    // 					1.0,							// ratio
-    // 					1,								// n_trees
-    // 					NUM_FEATURES);					// n_features (no. cols in dataset - 1)
 
 
     printf("accuracy: %f\n", accuracy);

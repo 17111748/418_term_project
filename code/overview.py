@@ -20,7 +20,11 @@
         b. dataset->n_entries (constant for a single node->left/right)
         c. dataset->n_entries (constant for a single node->left/right)
     ideally, a * b * b / t no. iterations each
-    try: pragma for static on each of these loops
+    Try: 
+        1. pragma for static and dynamic on n_features ()
+        2. pragma for static and dynamic on n->entries 
+        3. pragma for static and dynamic on n->entries 
+        4. 
 
 4. Classifying the dataset
     - split the work done for each entry
@@ -84,3 +88,4 @@ for curthread in range(nthreads):
                 curthread == total - cur_idx - 1):
                 print(cur_idx)
     print()
+
