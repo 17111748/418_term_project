@@ -21,8 +21,11 @@ node_parallel_3: node_parallel_3.c
 node_parallel_4: node_parallel_4.c
 	gcc -Wall -fopenmp -o node_parallel_4 node_parallel_4.c cycletimer.c
 
-albert_level_parallel: albert_level_parallel.c 
+albert_level_parallel: albert_level_parallel.c
 	gcc -Wall -fopenmp -o albert_level_parallel albert_level_parallel.c cycletimer.c
+
+test_parallel: test_parallel.c
+	gcc -Wall -fopenmp -o test_parallel test_parallel.c cycletimer.c
 
 clean:
 	rm seq_random_forest

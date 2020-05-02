@@ -505,30 +505,30 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 			// memset(cur_weights, 0, num_threads * sizeof(int));
 			// memset(cur_counts, 0, num_threads * sizeof(int));
 
-			// for (i = cur_level_count - 1; i > -1; i--) {
-			// 	// min_weight = INT_MAX;
-			// 	// for (j = 0; j < num_threads; j++) {
-			// 	// 	if (cur_weights[j] < min_weight) {
-			// 	// 		min_weight = cur_weights[j];
-			// 	// 		min_thread_idx = j;
-			// 	// 	}
-			// 	// }
+			for (i = cur_level_count - 1; i > -1; i--) {
+				// min_weight = INT_MAX;
+				// for (j = 0; j < num_threads; j++) {
+				// 	if (cur_weights[j] < min_weight) {
+				// 		min_weight = cur_weights[j];
+				// 		min_thread_idx = j;
+				// 	}
+				// }
 
-			// 	min_thread_idx++; 
-			// 	min_thread_idx = min_thread_idx % num_threads; 
+				min_thread_idx++; 
+				min_thread_idx = min_thread_idx % num_threads; 
 
-			// 	// Stores the index for the nodes that each thread has to do 
-			// 	cur_idxs[min_thread_idx][cur_counts[min_thread_idx]] = i;
+				// Stores the index for the nodes that each thread has to do 
+				cur_idxs[min_thread_idx][cur_counts[min_thread_idx]] = i;
 
-			// 	//keeps track of how many nodes each thread has to do 
-			// 	cur_counts[min_thread_idx]++;
-			// 	if (cur_counts[min_thread_idx] >= max_capacity) {
-			// 		fprintf(stderr, "ERROR in split(): did not allocate enough\n"); 
-			// 		exit(1);
-			// 	}
-			// 	// Weights to decide which thread to give the work to. 
-			// 	cur_weights[min_thread_idx] += weight(cur_level[i]);
-			// }
+				//keeps track of how many nodes each thread has to do 
+				cur_counts[min_thread_idx]++;
+				if (cur_counts[min_thread_idx] >= max_capacity) {
+					fprintf(stderr, "ERROR in split(): did not allocate enough\n"); 
+					exit(1);
+				}
+				// Weights to decide which thread to give the work to. 
+				cur_weights[min_thread_idx] += weight(cur_level[i]);
+			}
 
 
 			int t_count;
@@ -547,11 +547,11 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 				node_t *temp_node;
 				node_t **next_level_local = &next_levels[tid * max_capacity]; 
 
-				#pragma omp for schedule(static) nowait 
-				for (i = 0; i < cur_level_count; i++) {
+
+				for (t_count = 0; t_count < cur_counts[tid]; t_count++) {
 					// printf("HEREEEEEEEEEE %d\n", t_count);
 					// printf("1"); 
-					cur_node = cur_level[i];
+					cur_node = cur_level[cur_idxs[tid][t_count]];
 					// printf("%d, ", weight(cur_node));
 					group = cur_node->group; 
 					left = group->left_idxs; 
