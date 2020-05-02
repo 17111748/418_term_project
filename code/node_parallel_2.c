@@ -174,7 +174,6 @@ float gini_index(float **train_set, group_t *group, int n_features) {
 	int k; 
 	float size, score, p0, p1; 
 	
-	printf("E\n"); 
 	// Left Side 
 	size = (float)(left_idxs->n_entries); 
 	if (size != 0) {
@@ -184,8 +183,6 @@ float gini_index(float **train_set, group_t *group, int n_features) {
 		for (k = 0; k < left_idxs->n_entries; k++) {
 			int index = left_idxs->data_idxs[k]; 
 			// get malign or not count 
-			printf("F\n"); 
-			printf("index: %d\n", index); 
 			if (float_equal(train_set[n_features][index], 0.0)) {
 				p0 += 1; 
 			}
@@ -197,7 +194,6 @@ float gini_index(float **train_set, group_t *group, int n_features) {
 		score += p1/size * p1/size; 
 		gini += (1.0 - score) * (size / (float)n_instances); 
 	}
-	printf("G\n"); 
 	// Right Side 
 	size = (float)(right_idxs->n_entries); 
 	if (size != 0) {
@@ -352,18 +348,14 @@ node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int no
 		featureList[i] = i;
 	}
 	
-	printf("A\n"); 
 	// Selecting the best split with the lowest gini index 
 	for (index = 0; index < n_features; index++) {
 		for (indexD = 0; indexD < dataset->n_entries; indexD++) {
 			int feature_index = featureList[index]; 
 			int data_index = (dataset->data_idxs)[indexD]; 
-			printf("C\n"); 
 			group_t *group = test_split(feature_index, train_set[feature_index][data_index], train_set, dataset); 
 			// group_t *group = test_split(feature_index, train_set[data_index][feature_index], train_set, dataset); 
-			printf("D\n"); 
 			gini = gini_index(train_set, group, n_features); 
-			printf("E\n"); 
 			if (gini < best_score) {
 				best_feature_index = feature_index; 
 				best_feature_value = train_set[feature_index][data_index]; 
@@ -375,7 +367,6 @@ node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int no
 			}
 		}
 	}
-	printf("B\n"); 
 	node_t *node = create_node(best_feature_index, best_feature_value, best_group, node_depth); 
 
 	return node;
@@ -692,6 +683,8 @@ float random_forest(float **train_set, float **test_set, int train_len, int test
 		free_tree_groups(root_node);
 	}
 
+	exit(1); 
+
 	double endSeconds = currentSeconds(); 
 	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
 	printf("Time to Build Forest - %d trees (random_forest) %f\n", n_trees, endSeconds - startSeconds); 
@@ -859,8 +852,8 @@ int main(int argc, char **argv)
     int num_row = count; 
     int num_col = NUM_FEATURES + 1; 
 
-    num_row = 5; 
-    num_col = 4; 
+    // num_row = 5; 
+    // num_col = 4; 
 
     float **temp_data = malloc(sizeof(float *) * 48); 
 
@@ -942,8 +935,8 @@ int main(int argc, char **argv)
 	printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n");
 
 	float accuracy = random_forest(
-    					&new_train_data[0],				    // train set
-    					&data[n_train_entries],			    // test set
+    					&new_train_data[0],				// train set
+    					&data[n_train_entries],			// test set
     					n_train_entries,				// n_train_entries
     					count - n_train_entries,		// n_test_entries
     					20, 							// max depth
