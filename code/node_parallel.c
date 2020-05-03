@@ -209,12 +209,104 @@ group_t *test_split(int index, float value, float **train_set, dataidxs_t *datas
 	return group; 
 }
 
+// node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int node_depth) {
+	
+// 	int i; 
+// 	int count; 
+// 	int index_i; 
+
+// 	// Randomly Select N features from featureList 
+// 	int featureList[n_features]; 
+// 	featureList[0] = rand() % n_features; 
+// 	for (i = 1; i < n_features; i++) {
+// 		count = 0; 
+// 		index_i = rand() % n_features; 
+// 		while (count < i) {
+// 			if(featureList[count] == index_i) {
+// 				index_i = rand() % n_features; 
+// 				count = 0; 
+// 			}
+// 			else {
+// 				count++; 
+// 			}
+// 		}
+// 		featureList[i] = index_i; 
+// 	}
+	
+// 	for (i = 0; i < n_features; i++) {
+// 		featureList[i] = i;
+// 	}
+
+
+// 	int num_threads = omp_get_max_threads(); 
+
+// 	int padding = 1024; 
+
+// 	float best_scores[num_threads * padding]; 
+// 	int best_feature_indexs[num_threads * padding]; 
+// 	float best_feature_values[num_threads * padding]; 
+// 	group_t *best_groups[num_threads * padding];  
+
+
+
+
+// 	// Selecting the best split with the lowest gini index
+// 	int index; 
+// 	int indexD;
+// 	#pragma omp parallel 
+// 	{
+// 		int tid = omp_get_thread_num(); 
+// 		int pad = padding;  
+// 		best_feature_indexs[tid * pad] = -1; 
+// 		best_feature_values[tid * pad] = -1; 
+// 		best_scores[tid * pad] = (float)INT_MAX; 
+// 		best_groups[tid * pad] = NULL;
+// 		#pragma omp for schedule(static) collapse(2) nowait
+// 		for (index = 0; index < n_features; index++) { 
+// 			for (indexD = 0; indexD < dataset->n_entries; indexD++) {
+// 				int feature_index = featureList[index]; 
+// 				int data_index = (dataset->data_idxs)[indexD]; 
+// 				group_t *group = test_split(feature_index, train_set[feature_index][data_index], train_set, dataset); 
+// 				float gini = gini_index(train_set, group, n_features); 
+// 				if (gini < best_scores[tid * pad]) {
+// 					best_feature_indexs[tid * pad] = feature_index; 
+// 					best_feature_values[tid * pad] = train_set[feature_index][data_index]; 
+// 					best_scores[tid * pad] = gini; 
+// 					best_groups[tid * pad] = group; 
+// 				}
+// 				else {
+// 					free_group(group);
+// 				}
+// 			}
+// 		}
+// 	}
+
+// 	float best_score = (float)INT_MAX; 
+// 	int best_feature_index = -1; 
+// 	float best_feature_value = -1; 
+// 	group_t *best_group = NULL; 
+
+// 	for (i = 0; i < num_threads; i++) {
+// 		if (best_scores[i * padding] < best_score) {
+// 			best_score = best_scores[i * padding]; 
+// 			best_feature_index = best_feature_indexs[i * padding]; 
+// 			best_feature_value = best_feature_values[i * padding]; 
+// 			best_group = best_groups[i * padding]; 
+// 		}
+// 	}
+	
+// 	node_t *node = create_node(best_feature_index, best_feature_value, best_group, node_depth); 
+
+// 	return node;
+// }
+
+
 node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int node_depth) {
 	
 	int i; 
 	int count; 
 	int index_i; 
-
+	
 	// Randomly Select N features from featureList 
 	int featureList[n_features]; 
 	featureList[0] = rand() % n_features; 
@@ -240,13 +332,10 @@ node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int no
 
 	int num_threads = omp_get_max_threads(); 
 
-	// int padding_int = sizeof(float) * 
-	// int padding_group = sizeof(group_t*)
 	float best_scores[num_threads]; 
 	int best_feature_indexs[num_threads]; 
 	float best_feature_values[num_threads]; 
 	group_t *best_groups[num_threads];  
-
 
 	// Selecting the best split with the lowest gini index
 	int index; 

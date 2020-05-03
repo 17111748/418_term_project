@@ -83,10 +83,16 @@ dataidxs_t* subsample(int n_entries, float percentage) {
 	int i;
 	int n_sample = (float)(n_entries * percentage); 
 	dataidxs_t *sample = create_dataidxs(n_sample);
+	// for (i = 0; i < n_sample; i++) {
+	// 	int index = rand() % n_entries; 
+	// 	sample->data_idxs[i] = index; 
+	// }
+
 	for (i = 0; i < n_sample; i++) {
-		int index = rand() % n_entries; 
-		sample->data_idxs[i] = index; 
+		// int index = rand() % n_entries; 
+		sample->data_idxs[i] = i; 
 	}
+	
 	return sample; 
 }
 
@@ -236,9 +242,9 @@ node_t *get_split(float **train_set, dataidxs_t *dataset, int n_features, int no
 		featureList[i] = index; 
 	}
 	
-	// for (i = 0; i < n_features; i++) {
-	// 	featureList[i] = i;
-	// }
+	for (i = 0; i < n_features; i++) {
+		featureList[i] = i;
+	}
 
 	// Selecting the best split with the lowest gini index
 

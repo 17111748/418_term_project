@@ -535,8 +535,6 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 			// printf("B\n"); 
 			#pragma omp parallel
 			{
-
-				
 				int tid = omp_get_thread_num();
 				// printf("HEREEEEEEEEEE TID = %d\n", tid);
 
@@ -547,7 +545,7 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 				node_t *temp_node;
 				node_t **next_level_local = &next_levels[tid * max_capacity]; 
 
-				#pragma omp for schedule(static) nowait 
+				#pragma omp for schedule(dynamic)  
 				for (i = 0; i < cur_level_count; i++) {
 					// printf("HEREEEEEEEEEE %d\n", t_count);
 					// printf("1"); 
@@ -599,8 +597,7 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 						
 						next_level_local[next_level_counts[tid]] = cur_node->right;
 						next_level_counts[tid]++;
-							// if (next_level_count >= max_capacity) printf("\n\nERROR IN SPLIT: MAX CAPACITY REACHED\n\n");
-						
+							// if (next_level_count >= max_capacity) printf("\n\nERROR IN SPLIT: MAX CAPACITY REACHED\n\n");		
 					}
 					// printf("5"); 
 				}

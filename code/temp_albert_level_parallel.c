@@ -425,7 +425,7 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 		// }
 		// printf("]\n\n");
 
-		if (cur_level_count < num_threads * 2) { //run sequential
+		if (cur_level_count < num_threads * 0) { //run sequential
 			// printf("\nSTART OF SEQUENTIAL\n");
 			startSequential = currentSeconds(); 
 			node_t *cur_node;
@@ -491,8 +491,6 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 		else { //run in parallel
 			// printf("\n\n\nSTART OF PARALLEL~~~~\n");
 
-			// printf("\t\t\t\t cur_level: %d\n", cur_level_count); 
-
 			startParallel = currentSeconds(); 
 			// printf("cur_level_count %d\n", cur_level_count); 
 			// for(i = 0; i < cur_level_count; i++) {
@@ -502,8 +500,7 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 
 			// quickSort(cur_level, 0, cur_level_count - 1);
 
-			// memset(cur_weights, 0, num_threads * sizeof(int));
-			// memset(cur_counts, 0, num_threads * sizeof(int));
+			
 
 			for (i = cur_level_count - 1; i > -1; i--) {
 				// min_weight = INT_MAX;
@@ -513,7 +510,6 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 				// 		min_thread_idx = j;
 				// 	}
 				// }
-
 				min_thread_idx++; 
 				min_thread_idx = min_thread_idx % num_threads; 
 
@@ -530,15 +526,12 @@ void split(node_t *node, int max_depth, int min_size, int n_features, float **tr
 				cur_weights[min_thread_idx] += weight(cur_level[i]);
 			}
 
-
 			int t_count;
-			// printf("B\n"); 
-			#pragma omp parallel
-			{
 
-				
+			#pragma omp parallel
+			{	
 				int tid = omp_get_thread_num();
-				// printf("HEREEEEEEEEEE TID = %d\n", tid);
+				printf("HEREEEEEEEEEE TID = %d\n", tid);
 
 				node_t *cur_node;
 				group_t *group;
